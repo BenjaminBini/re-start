@@ -47,14 +47,13 @@ class TodoistAPI {
 
             return data
         } catch (error) {
-            console.error(error)
-
             if (!isRetry && this.syncToken !== '*') {
                 console.log('retrying with full sync...')
                 this.syncToken = '*'
                 localStorage.setItem(this.syncTokenKey, this.syncToken)
                 return this.sync(resourceTypes, true)
             }
+            throw error
         }
     }
 
