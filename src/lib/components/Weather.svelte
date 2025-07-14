@@ -16,6 +16,7 @@
         const lon = settings.longitude
         const tempUnit = settings.tempUnit
         const speedUnit = settings.speedUnit
+        const timeFormat = settings.timeFormat
 
         if (untrack(() => initialLoad)) {
             initialLoad = false
@@ -40,7 +41,8 @@
                 settings.latitude,
                 settings.longitude,
                 settings.tempUnit,
-                settings.speedUnit
+                settings.speedUnit,
+                settings.timeFormat
             )
             current = data.current
             forecast = data.forecast

@@ -100,13 +100,22 @@
         }
 
         if (hasTime) {
-            const timeString = dueDate
-                .toLocaleTimeString('en-US', {
+            let timeString
+            if (settings.timeFormat === '12hr') {
+                timeString = dueDate
+                    .toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                    })
+                    .toLowerCase()
+            } else {
+                timeString = dueDate.toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
-                    hour12: true,
+                    hour12: false,
                 })
-                .toLowerCase()
+            }
             dateString += ` ${timeString}`
         }
 
@@ -123,7 +132,7 @@
         {#if loading}
             loading...
         {:else if error}
-            {error}
+            <span class="error">{error}</span>
         {:else}
             <a
                 href="https://todoist.com/app"
@@ -139,22 +148,27 @@
         </button>
     </div>
 
-    <br />
-    <div class="tasks-list">
-        {#each tasks as task}
-            <div class="task">
-                <button onclick={() => completeTask(task.id)} class="checkbox">
-                    [ ]
-                </button>
-                <span class="task-title">{task.content}</span>
-                {#if task.due}
-                    <span class="task-due">
-                        {formatDueDate(task.offset_due_date, task.has_time)}
-                    </span>
-                {/if}
-            </div>
-        {/each}
-    </div>
+    {#if tasks.length > 0}
+        <br />
+        <div class="tasks-list">
+            {#each tasks as task}
+                <div class="task">
+                    <button
+                        onclick={() => completeTask(task.id)}
+                        class="checkbox"
+                    >
+                        [ ]
+                    </button>
+                    <span class="task-title">{task.content}</span>
+                    {#if task.due}
+                        <span class="task-due">
+                            {formatDueDate(task.offset_due_date, task.has_time)}
+                        </span>
+                    {/if}
+                </div>
+            {/each}
+        </div>
+    {/if}
 </div>
 
 <style>

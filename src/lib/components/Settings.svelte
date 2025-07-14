@@ -44,6 +44,27 @@
 
         <div class="content">
             <div class="group">
+                <div class="setting-label">time format</div>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input
+                            type="radio"
+                            bind:group={settings.timeFormat}
+                            value="12hr"
+                        />
+                        12 hour
+                    </label>
+                    <label class="radio-label">
+                        <input
+                            type="radio"
+                            bind:group={settings.timeFormat}
+                            value="24hr"
+                        />
+                        24 hour
+                    </label>
+                </div>
+            </div>
+            <div class="group">
                 <label for="todoist-token">todoist api token</label>
                 <input
                     id="todoist-token"

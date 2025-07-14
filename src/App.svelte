@@ -4,6 +4,7 @@
     import Weather from './lib/components/Weather.svelte'
     import Links from './lib/components/Links.svelte'
     import Settings from './lib/components/Settings.svelte'
+    import { settings } from './lib/settings-store.svelte.js'
 
     let showSettings = $state(false)
 
@@ -59,9 +60,14 @@
         const now = new Date()
 
         let hours = now.getHours()
-        currentAmPm = hours >= 12 ? 'pm' : 'am'
-        hours = hours % 12
-        if (hours === 0) hours = 12
+
+        if (settings.timeFormat === '12hr') {
+            currentAmPm = hours >= 12 ? 'pm' : 'am'
+            hours = hours % 12
+            if (hours === 0) hours = 12
+        } else {
+            currentAmPm = ''
+        }
 
         currentHrs = hours.toString().padStart(2, '0')
         currentMin = now.getMinutes().toString().padStart(2, '0')
@@ -155,7 +161,9 @@
 <main>
     <div class="clock">
         {currentHrs}:{currentMin}:{currentSec}
-        <span class="clock-ampm">{currentAmPm}</span>
+        {#if settings.timeFormat === '12hr'}
+            <span class="clock-ampm">{currentAmPm}</span>
+        {/if}
     </div>
     <div class="date">{currentDate}</div>
     <br />

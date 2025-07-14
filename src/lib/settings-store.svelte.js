@@ -1,4 +1,5 @@
 let defaultSettings = {
+    timeFormat: '12hr',
     todoistApiToken: '',
     latitude: null,
     longitude: null,

@@ -13,7 +13,13 @@ class WeatherAPI {
     /**
      * Get processed weather data including current conditions and hourly forecasts
      */
-    async getWeather(latitude, longitude, tempUnit, speedUnit) {
+    async getWeather(
+        latitude,
+        longitude,
+        tempUnit,
+        speedUnit,
+        timeFormat = '12hr'
+    ) {
         let rawData = this._getCachedWeather()
         if (!rawData) {
             rawData = await this._fetchWeatherData(
@@ -29,7 +35,8 @@ class WeatherAPI {
             current: this._processCurrentWeather(rawData.current),
             forecast: this._processHourlyForecast(
                 rawData.hourly,
-                rawData.current.time
+                rawData.current.time,
+                timeFormat
             ),
         }
     }
@@ -90,7 +97,7 @@ class WeatherAPI {
     /**
      * Process hourly forecast to get every 3rd hour starting 3 hours from current hour
      */
-    _processHourlyForecast(hourlyData, currentTime) {
+    _processHourlyForecast(hourlyData, currentTime, timeFormat = '12hr') {
         const currentHour = new Date(currentTime).getHours()
         const forecasts = []
 
@@ -119,7 +126,10 @@ class WeatherAPI {
                     hourlyData.weather_code[index],
                     hourlyData.is_day[index] === 1
                 ),
-                formattedTime: this._formatTime(hourlyData.time[index]),
+                formattedTime: this._formatTime(
+                    hourlyData.time[index],
+                    timeFormat
+                ),
             })
         }
 
@@ -138,16 +148,25 @@ class WeatherAPI {
     }
 
     /**
-     * Format time to display (e.g., "02 PM")
+     * Format time to display (e.g., "12pm" for 12hr, "12:00" for 24hr)
      */
-    _formatTime(timeString) {
+    _formatTime(timeString, timeFormat = '12hr') {
         const date = new Date(timeString)
-        return date
-            .toLocaleTimeString('en-US', {
+
+        if (timeFormat === '12hr') {
+            return date
+                .toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    hour12: true,
+                })
+                .toLowerCase()
+        } else {
+            return date.toLocaleTimeString('en-US', {
                 hour: 'numeric',
-                hour12: true,
+                minute: '2-digit',
+                hour12: false,
             })
-            .toLowerCase()
+        }
     }
 
     /**
