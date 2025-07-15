@@ -39,10 +39,13 @@
         gap: 3rem;
         flex-wrap: wrap;
     }
-    span {
-        color: var(--txt-3);
+    .link {
+        text-decoration: none;
     }
     .link:hover span {
         color: var(--txt-2);
+    }
+    span {
+        color: var(--txt-3);
     }
 </style>

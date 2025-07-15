@@ -4,6 +4,9 @@
 
     let { showSettings = false, closeSettings } = $props()
 
+    // @ts-ignore
+    const version = __APP_VERSION__
+
     function addLink() {
         settings.links = [...settings.links, { title: '', url: '' }]
     }
@@ -171,6 +174,16 @@
                     {/each}
                 </div>
             </div>
+            <div class="version">
+                re-start
+                {#if version}v{version}
+                {/if} • made with ❤️ by
+                <a href="https://refact0r.dev" target="_blank">refact0r</a>
+                •
+                <a href="https://github.com/refact0r/re-start" target="_blank"
+                    >github</a
+                >
+            </div>
         </div>
     </div>
 {/if}
@@ -253,5 +266,8 @@
     .remove-btn {
         font-size: 1.5rem;
         font-weight: 300;
+    }
+    .version {
+        color: var(--txt-3);
     }
 </style>
