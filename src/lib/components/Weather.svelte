@@ -121,6 +121,10 @@
 </div>
 
 <style>
+    .weather {
+        flex-shrink: 0;
+        flex-grow: 0;
+    }
     .temp {
         font-size: 2rem;
         font-weight: 300;

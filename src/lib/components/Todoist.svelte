@@ -8,6 +8,7 @@
     let syncing = $state(true)
     let error = $state('')
     let initialLoad = $state(true)
+    let taskCount = $derived(tasks.filter((task) => !task.checked).length)
 
     $effect(() => {
         const token = settings.todoistApiToken
@@ -50,39 +51,25 @@
         }
     }
 
-    async function completeTask(taskId) {
+    async function toggleTask(taskId, checked) {
         try {
-            tasks = TodoistAPI.sortTasks(
-                tasks.map((task) =>
-                    task.id === taskId
-                        ? {
-                              ...task,
-                              checked: true,
-                              completed_at: new Date().toISOString(),
-                          }
-                        : task
-                )
+            tasks = tasks.map((task) =>
+                task.id === taskId
+                    ? {
+                          ...task,
+                          checked: checked,
+                          completed_at: checked
+                              ? new Date().toISOString()
+                              : null,
+                      }
+                    : task
             )
 
-            await api.completeTask(taskId)
-            await loadTasks()
-        } catch (err) {
-            console.error(err)
-            await loadTasks()
-        }
-    }
-
-    async function uncompleteTask(taskId) {
-        try {
-            tasks = TodoistAPI.sortTasks(
-                tasks.map((task) =>
-                    task.id === taskId
-                        ? { ...task, checked: false, completed_at: null }
-                        : task
-                )
-            )
-
-            await api.uncompleteTask(taskId)
+            if (checked) {
+                await api.completeTask(taskId)
+            } else {
+                await api.uncompleteTask(taskId)
+            }
             await loadTasks()
         } catch (err) {
             console.error(err)
@@ -108,7 +95,6 @@
             dueDate.getDate()
         )
 
-        // Calculate difference in days
         const diffTime = dueDateOnly.getTime() - today.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
@@ -175,8 +161,7 @@
                 target="_blank"
                 rel="noopener noreferrer"
             >
-                {tasks.length}
-                {tasks.length === 1 ? 'task' : 'tasks'}
+                {taskCount} task{taskCount === 1 ? '' : 's'}
             </a>
         {/if}
         <button
@@ -190,45 +175,54 @@
 
     {#if tasks.length > 0}
         <br />
-        <div class="tasks-list">
-            {#each tasks as task}
-                <div
-                    class="task"
-                    class:completed={task.checked}
-                    class:overdue={isTaskOverdue(task)}
-                >
-                    {#if task.checked}
+        <div class="tasks">
+            <div class="tasks-list">
+                {#each tasks as task}
+                    <div
+                        class="task"
+                        class:completed={task.checked}
+                        class:overdue={isTaskOverdue(task)}
+                    >
                         <button
-                            onclick={() => uncompleteTask(task.id)}
-                            class="checkbox completed"
-                        >
-                            [x]
-                        </button>
-                    {:else}
-                        <button
-                            onclick={() => completeTask(task.id)}
+                            onclick={() => toggleTask(task.id, !task.checked)}
                             class="checkbox"
+                            class:completed={task.checked}
                         >
-                            [ ]
+                            {task.checked ? '[x]' : '[ ]'}
                         </button>
-                    {/if}
-                    <span class="task-title">{task.content}</span>
-                    {#if task.due}
-                        <span
-                            class="task-due"
-                            class:overdue-date={isTaskOverdue(task)}
-                        >
-                            {formatDueDate(task.due_date, task.has_time)}
-                        </span>
-                    {/if}
-                </div>
-            {/each}
+                        {#if task.project_name && task.project_name !== 'Inbox'}
+                            <span class="task-project"
+                                >#{task.project_name}</span
+                            >
+                        {/if}
+                        <span class="task-title">{task.content}</span>
+                        {#if task.due}
+                            <span
+                                class="task-due"
+                                class:overdue-date={isTaskOverdue(task)}
+                            >
+                                {formatDueDate(task.due_date, task.has_time)}
+                            </span>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
         </div>
     {/if}
 </div>
 
 <style>
+    .tasks {
+        max-height: 15rem;
+        overflow: auto;
+        scrollbar-width: none;
+    }
+
     .task-due {
+        color: var(--txt-3);
+    }
+
+    .task-project {
         color: var(--txt-3);
     }
 

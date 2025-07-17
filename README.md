@@ -36,3 +36,10 @@ features:
 hover your cursor on the top right corner of the startpage, and you should see a settings button appear. click it to configure settings.
 
 to get your todoist api token, open the todoist website and clicking your profile in the top left. then go to "Settings" > "Integrations" > "Developer" > "Copy API Token".
+
+### development / building from souce
+
+1. clone/download this repo.
+2. run `npm i` (you must have node.js).
+3. run `npm run dev` to start in development mode. the page will run at `http://localhost:5173`.
+4. run `npm run build` to build for production.
