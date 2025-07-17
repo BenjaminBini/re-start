@@ -197,15 +197,11 @@ class WeatherAPI {
      * Cache weather data with timestamp
      */
     _cacheWeather(data) {
-        try {
-            const cacheData = {
-                data,
-                timestamp: Date.now(),
-            }
-            localStorage.setItem(this.cacheKey, JSON.stringify(cacheData))
-        } catch (error) {
-            console.error('failed to cache weather data:', error)
+        const cacheData = {
+            data,
+            timestamp: Date.now(),
         }
+        localStorage.setItem(this.cacheKey, JSON.stringify(cacheData))
     }
 }
 

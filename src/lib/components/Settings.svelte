@@ -225,6 +225,7 @@
         font-size: 1.5rem;
         padding: 0.5rem;
         line-height: 1;
+        font-weight: 300;
     }
     .content {
         flex: 1;
