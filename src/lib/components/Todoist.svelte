@@ -90,6 +90,12 @@
         }
     }
 
+    function isTaskOverdue(task) {
+        if (!task.due || task.checked) return false
+        const now = new Date()
+        return task.due_date.getTime() < now.getTime()
+    }
+
     function formatDueDate(date, hasTime) {
         if (!date) return ''
 
@@ -186,7 +192,11 @@
         <br />
         <div class="tasks-list">
             {#each tasks as task}
-                <div class="task" class:completed={task.checked}>
+                <div
+                    class="task"
+                    class:completed={task.checked}
+                    class:overdue={isTaskOverdue(task)}
+                >
                     {#if task.checked}
                         <button
                             onclick={() => uncompleteTask(task.id)}
@@ -204,7 +214,10 @@
                     {/if}
                     <span class="task-title">{task.content}</span>
                     {#if task.due}
-                        <span class="task-due">
+                        <span
+                            class="task-due"
+                            class:overdue-date={isTaskOverdue(task)}
+                        >
                             {formatDueDate(task.due_date, task.has_time)}
                         </span>
                     {/if}
@@ -221,5 +234,9 @@
 
     .task.completed .task-title {
         text-decoration: line-through;
+    }
+
+    .overdue-date {
+        color: var(--txt-err);
     }
 </style>
