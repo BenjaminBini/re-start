@@ -1,6 +1,6 @@
 # re-start
 
-a simple, useful browser startpage, built with svelte.
+a useful browser startpage, built with svelte.
 
 features:
 
