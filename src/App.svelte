@@ -5,6 +5,7 @@
     import Links from './lib/components/Links.svelte'
     import Settings from './lib/components/Settings.svelte'
     import { settings } from './lib/settings-store.svelte.js'
+    import '@fontsource-variable/geist-mono'
 
     let showSettings = $state(false)
 
