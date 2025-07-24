@@ -11,7 +11,8 @@
 
     let loadTime = $state(0)
     let latency = $state(null)
-    let viewportSize = $state('')
+    let viewportWidth = $state(0)
+    let viewportHeight = $state(0)
     let fps = $state(0)
 
     let currentHrs = $state('')
@@ -130,7 +131,8 @@
     }
 
     function updateViewportSize() {
-        viewportSize = `${window.innerWidth} x ${window.innerHeight}`
+        viewportWidth = window.innerWidth
+        viewportHeight = window.innerHeight
     }
 
     onMount(() => {
@@ -160,26 +162,40 @@
 </script>
 
 <main>
-    <div class="clock">
-        {currentHrs}:{currentMin}:{currentSec}
-        {#if settings.timeFormat === '12hr'}
-            <span class="clock-ampm">{currentAmPm}</span>
-        {/if}
-    </div>
-    <div class="date">{currentDate}</div>
-    <br />
-    <br />
-    <div class="widgets">
-        <Weather bind:this={weatherComponent} />
-        <Todoist bind:this={todoistComponent} />
-    </div>
-    <br />
-    <br />
-    <Links />
-    <br />
-    <br />
-    <div class="load-stats">
-        load: {loadTime} ms | ping: {latency || '?'} ms
+    <div class="container">
+        <div class="top">
+            <div class="datetime">
+                <div class="clock">
+                    {currentHrs}<span class="colon">:</span>{currentMin}<span
+                        class="colon">:</span
+                    >{currentSec}
+                    {#if settings.timeFormat === '12hr'}
+                        <span class="ampm">{currentAmPm}</span>
+                    {/if}
+                </div>
+                <div class="date">{currentDate}</div>
+            </div>
+            <div class="stats">
+                <div>load <span class="value">{loadTime} ms</span></div>
+                <div>ping <span class="value">{latency || '?'} ms</span></div>
+                <div>fps <span class="value">{fps}</span></div>
+                <div>
+                    <span class="value">{viewportWidth}</span> x
+                    <span class="value">{viewportHeight}</span>
+                </div>
+            </div>
+        </div>
+        <div class="widgets">
+            <div class="weather">
+                <Weather bind:this={weatherComponent} />
+            </div>
+            <div class="todoist">
+                <Todoist bind:this={todoistComponent} />
+            </div>
+        </div>
+        <div class="links">
+            <Links />
+        </div>
     </div>
 
     <button
@@ -191,36 +207,87 @@
     </button>
 
     <Settings {showSettings} {closeSettings} />
-    <div class="display-stats">{fps} fps | {viewportSize}</div>
 </main>
 
 <style>
     main {
-        margin: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        justify-content: center;
+        align-items: center;
+    }
+    .container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .top {
+        display: flex;
+        gap: 1.5rem;
+    }
+    .datetime {
+        flex: 1;
     }
     .clock {
         margin: 0;
-        font-size: 3rem;
+        font-size: 3.25rem;
         font-weight: 300;
         color: var(--txt-1);
-        line-height: normal;
+        line-height: 3.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .colon,
+    .ampm {
+        color: var(--txt-2);
     }
     .date {
         margin: 0;
         font-size: 1.5rem;
         color: var(--txt-3);
-        line-height: normal;
+        line-height: 2rem;
     }
     .widgets {
         display: flex;
-        gap: 6rem;
+        gap: 1.5rem;
     }
-    .load-stats {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        padding: 1rem 1.5rem;
-        color: var(--txt-3);
+    .todoist {
+        flex: 1;
+    }
+    .datetime,
+    .weather,
+    .todoist,
+    .links,
+    .stats {
+        padding: 1.5rem;
+        border: 2px solid var(--bg-3);
+        position: relative;
+
+        &::after {
+            display: block;
+            color: var(--txt-4);
+            position: absolute;
+            top: -14px;
+            left: 8px;
+            background-color: var(--bg-1);
+            padding: 0 4px;
+            z-index: 10;
+        }
+    }
+    .datetime::after {
+        content: 'datetime';
+    }
+    .weather::after {
+        content: 'weather';
+    }
+    .todoist::after {
+        content: 'todoist';
+    }
+    .links::after {
+        content: 'links';
+    }
+    .stats::after {
+        content: 'stats';
     }
     .settings-btn {
         position: fixed;
@@ -235,11 +302,7 @@
     .settings-btn:hover {
         opacity: 1;
     }
-    .display-stats {
-        position: fixed;
-        bottom: 0;
-        right: 0;
-        padding: 1rem 1.5rem;
-        color: var(--txt-3);
+    .value {
+        color: var(--txt-1);
     }
 </style>
