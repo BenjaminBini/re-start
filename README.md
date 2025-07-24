@@ -1,15 +1,15 @@
 # re-start
 
-a useful browser startpage, built with svelte.
+a tui-like browser startpage, built with svelte.
 
 features:
 
-- customizable links
 - todoist tasks integration
 - weather
+- customizable links
 - random stats (load time, ping, fps, viewport size)
 
-<img width="1459" height="899" alt="Screenshot 2025-07-17 at 7 50 08 PM" src="https://github.com/user-attachments/assets/f346fbe1-9a7e-4add-aeca-089249f977dd" />
+<img width="2359" height="1340" alt="image" src="https://github.com/user-attachments/assets/220a383b-ceb7-4c54-9822-13eee4f63ad9" />
 
 
 ## how to use
