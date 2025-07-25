@@ -37,8 +37,8 @@ features:
 - hover your cursor on the top right corner of the startpage, and you should see a settings button appear. click it to configure settings.
 - to get your todoist api token, open the todoist website and click your profile in the top left. then go to "Settings" > "Integrations" > "Developer" > "Copy API Token".
 - the 'x tasks' text is also a clickable link to todoist.
-- you can force a refresh of the weather and todoist widgets by clicking the panel labels in the top left.
-- the ping stat is based on how long a request to https://www.google.com/generate_204 takes. don't take it too seriously.
+- you can force a refresh of the weather and todoist widgets by clicking the top left panel labels.
+- the ping stat is based on how long a request to <https://www.google.com/generate_204> takes. don't take it too seriously.
 
 ### development / building from souce
 
