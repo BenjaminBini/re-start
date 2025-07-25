@@ -5,12 +5,12 @@ a tui-like browser startpage, built with svelte.
 features:
 
 - todoist tasks integration
-- weather
+- weather (from open-meteo)
 - customizable links
 - random stats (load time, ping, fps, viewport size)
+- relatively lightweight (<90kb including fonts)
 
-<img width="2359" height="1340" alt="image" src="https://github.com/user-attachments/assets/220a383b-ceb7-4c54-9822-13eee4f63ad9" />
-
+<img width="2331" height="1319" alt="image" src="https://github.com/user-attachments/assets/e3164af7-fc42-4caf-81ee-a049e05b84c7" />
 
 ## how to use
 
@@ -32,11 +32,13 @@ features:
 6. click "Load unpacked" in the top left.
 7. select the `dist` folder.
 
-### startpage settings
+### more info
 
-hover your cursor on the top right corner of the startpage, and you should see a settings button appear. click it to configure settings.
-
-to get your todoist api token, open the todoist website and clicking your profile in the top left. then go to "Settings" > "Integrations" > "Developer" > "Copy API Token".
+- hover your cursor on the top right corner of the startpage, and you should see a settings button appear. click it to configure settings.
+- to get your todoist api token, open the todoist website and click your profile in the top left. then go to "Settings" > "Integrations" > "Developer" > "Copy API Token".
+- the 'x tasks' text is also a clickable link to todoist.
+- you can force a refresh of the weather and todoist widgets by clicking the panel labels in the top left.
+- the ping stat is based on how long a request to https://www.google.com/generate_204 takes. don't take it too seriously.
 
 ### development / building from souce
 
