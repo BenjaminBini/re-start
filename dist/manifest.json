@@ -1,0 +1,13 @@
+{
+    "name": "re-start",
+    "version": "1.2.3",
+    "manifest_version": 3,
+    "chrome_url_overrides": {
+        "newtab": "index.html"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "re-start@refact0r.dev"
+        }
+    }
+}
