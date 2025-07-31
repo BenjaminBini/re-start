@@ -235,6 +235,12 @@
         overflow: auto;
         scrollbar-width: none;
     }
+    .task {
+        max-width: 40rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
     .task-due {
         color: var(--txt-3);
     }

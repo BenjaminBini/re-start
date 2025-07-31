@@ -1,9 +1,10 @@
 {
     "name": "re-start",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "manifest_version": 3,
     "chrome_url_overrides": {
-        "newtab": "index.html"
+        "newtab": "index.html",
+        "homepage": "index.html"
     },
     "browser_specific_settings": {
         "gecko": {
