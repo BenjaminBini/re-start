@@ -98,7 +98,7 @@ class GoogleTasksBackend extends TaskBackend {
      * Sync tasks from Google Tasks API
      */
     async sync(resourceTypes = ['tasklists', 'tasks']) {
-        if (!this.isSignedIn) {
+        if (!this.getIsSignedIn()) {
             throw new Error('Not signed in to Google account')
         }
 
