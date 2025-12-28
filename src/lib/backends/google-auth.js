@@ -131,10 +131,9 @@ export function refreshAccessToken() {
     return new Promise((resolve, reject) => {
         const { url, state } = buildAuthUrl('none')
 
-        // Create hidden iframe
+        // Create hidden iframe for silent refresh
         const iframe = document.createElement('iframe')
         iframe.style.display = 'none'
-        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts')
 
         let timeoutId
         let resolved = false
