@@ -1,8 +1,11 @@
 FROM node:20-alpine
 
+# Install build tools for better-sqlite3
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
-# Install backend dependencies
+# Install backend dependencies (builds better-sqlite3 from source)
 COPY package*.json ./
 RUN npm ci --production
 
@@ -11,8 +14,6 @@ COPY . .
 
 # Create db directory for SQLite
 RUN mkdir -p /app/db
-
-# Frontend files will be copied to /app/public by the deploy workflow
 
 EXPOSE 3004
 
