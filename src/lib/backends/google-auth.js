@@ -11,7 +11,7 @@ const REFRESH_TOKEN_KEY = 'google_oauth_refresh_token'
 const USER_EMAIL_KEY = 'google_user_email'
 
 // OAuth configuration
-const CLIENT_ID = '317653837986-8hsogqkfab632ducq6k0jcpngn1iub6a.apps.googleusercontent.com'
+const CLIENT_ID = '317653837986-5uusa3eg1125unbg89pd25g9efrleprc.apps.googleusercontent.com'
 const SCOPES = [
     'https://www.googleapis.com/auth/tasks',
     'https://www.googleapis.com/auth/calendar.readonly',
