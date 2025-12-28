@@ -48,11 +48,11 @@ src/
     ├── themes.js                # Theme definitions (10+ themes)
     ├── date-matcher.js          # Natural language date parser
     ├── weather-api.js           # OpenMeteo API wrapper
+    ├── unsplash-api.js          # Daily background images from Unsplash
     └── tests/
         └── date-matcher.test.js
 public/
 ├── manifest.json                # Extension manifest template
-├── oauth-callback.html          # OAuth redirect handler
 └── icon.svg
 scripts/
 └── build-manifest.js            # Browser-specific manifest generator
@@ -72,6 +72,7 @@ Key settings structure:
 - Weather: `showWeather`, `locationMode`, `latitude`, `longitude`, `tempUnit`, `speedUnit`
 - Tasks: `showTasks`, `taskBackend` (local/todoist/google-tasks), `todoistApiToken`
 - Calendar: `showCalendar`, `googleTasksSignedIn`
+- Background: `showBackground`, `backgroundOpacity`
 - Links: `showLinks`, `linksPerColumn`, `linkTarget`, `links[]`
 
 ### Task Backend System
@@ -89,15 +90,21 @@ Factory functions in `src/lib/backends/index.js`:
 `google-calendar-backend.js` fetches today's events using Google Calendar API v3. Shares OAuth with Google Tasks.
 
 ### Google OAuth System
-`src/lib/backends/google-auth.js` implements implicit flow with silent refresh:
-- `signIn()` - popup-based OAuth (500×600px window)
-- `refreshAccessToken()` - silent refresh via hidden iframe with `prompt=none`
+`src/lib/backends/google-auth.js` uses Google Identity Services (GIS) library:
+- `signIn()` - requests access token via GIS popup
 - `ensureValidToken()` - auto-refresh with 5-minute buffer before expiry
 - `getIsSignedIn()` - check if token exists and not expired
-- `signOut()` - clear all tokens
+- `signOut()` - revoke token and clear storage
 
 OAuth scopes: `tasks`, `calendar.readonly`, `userinfo.email`
-Redirect handled by `public/oauth-callback.html` (parses hash fragment, posts message to opener/parent)
+GIS library loaded dynamically from `https://accounts.google.com/gsi/client`
+
+### Unsplash Background
+`src/lib/unsplash-api.js` provides daily background images:
+- Fetches random images from topics: abstract, nature, city, architecture, landscape
+- Daily auto-refresh with lazy update (checks date on load)
+- Force refresh via Settings
+- Caches image data and photographer attribution in localStorage
 
 ### Weather API
 `src/lib/weather-api.js` wraps OpenMeteo API (free, no key required):
@@ -138,3 +145,4 @@ Vite with custom plugins in `vite.config.js`:
 - Recently completed tasks shown for 5 minutes before hiding
 - Dynamic CSS injection via `<style id="custom-css">` element
 - Link grid uses `$derived.by()` for responsive column layout
+- Frosted glass effect on panels when background image is enabled (`body.has-background`)
