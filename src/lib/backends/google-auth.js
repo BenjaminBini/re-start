@@ -11,7 +11,7 @@ const USER_ID_KEY = 'google_user_id'
 
 // Backend API URL - use relative path in production, localhost in dev
 const API_URL = import.meta.env.DEV
-    ? 'http://localhost:3001'
+    ? 'http://localhost:3004'
     : 'https://api.bini.io'
 
 // Token refresh buffer (5 minutes before expiry)
