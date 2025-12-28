@@ -1,17 +1,16 @@
 /**
  * Google OAuth module for Web Applications
- * Uses OAuth 2.0 authorization code flow with PKCE
+ * Uses OAuth 2.0 implicit flow with silent refresh via hidden iframe
  * Shared by Google Tasks and Google Calendar backends
  */
 
 // Storage keys
 const TOKEN_KEY = 'google_oauth_token'
 const TOKEN_EXPIRY_KEY = 'google_oauth_token_expiry'
-const REFRESH_TOKEN_KEY = 'google_oauth_refresh_token'
 const USER_EMAIL_KEY = 'google_user_email'
 
-// OAuth configuration
-const CLIENT_ID = '317653837986-5uusa3eg1125unbg89pd25g9efrleprc.apps.googleusercontent.com'
+// OAuth configuration - Web application client
+const CLIENT_ID = '317653837986-8hsogqkfab632ducq6k0jcpngn1iub6a.apps.googleusercontent.com'
 const SCOPES = [
     'https://www.googleapis.com/auth/tasks',
     'https://www.googleapis.com/auth/calendar.readonly',
@@ -20,33 +19,6 @@ const SCOPES = [
 
 // Token refresh buffer (5 minutes before expiry)
 const REFRESH_BUFFER_MS = 5 * 60 * 1000
-
-/**
- * Generate a cryptographically random code verifier for PKCE
- */
-function generateCodeVerifier() {
-    const array = new Uint8Array(32)
-    crypto.getRandomValues(array)
-    return base64UrlEncode(array)
-}
-
-/**
- * Generate code challenge from verifier using SHA-256
- */
-async function generateCodeChallenge(verifier) {
-    const encoder = new TextEncoder()
-    const data = encoder.encode(verifier)
-    const digest = await crypto.subtle.digest('SHA-256', data)
-    return base64UrlEncode(new Uint8Array(digest))
-}
-
-/**
- * Base64 URL encode (RFC 4648)
- */
-function base64UrlEncode(buffer) {
-    const base64 = btoa(String.fromCharCode(...buffer))
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
 
 /**
  * Get the redirect URI based on current location
@@ -82,13 +54,6 @@ export function getAccessToken() {
 }
 
 /**
- * Get the current refresh token
- */
-export function getRefreshToken() {
-    return localStorage.getItem(REFRESH_TOKEN_KEY)
-}
-
-/**
  * Get user email
  */
 export function getUserEmail() {
@@ -100,24 +65,18 @@ export function getUserEmail() {
  */
 export function isSignedIn() {
     const token = getAccessToken()
-    const refreshToken = getRefreshToken()
-    // Signed in if we have a refresh token (can get new access token) or valid access token
-    return !!refreshToken || (!!token && !isTokenExpired())
+    return !!token && !isTokenExpired()
 }
 
 /**
  * Store tokens in localStorage
  */
-function storeTokens(accessToken, expiresIn, refreshToken = null) {
+function storeTokens(accessToken, expiresIn) {
     localStorage.setItem(TOKEN_KEY, accessToken)
 
     const expiresInMs = (parseInt(expiresIn, 10) || 3600) * 1000
     const expiryTime = Date.now() + expiresInMs
     localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
-
-    if (refreshToken) {
-        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-    }
 }
 
 /**
@@ -144,105 +103,123 @@ async function fetchUserEmail(accessToken) {
 }
 
 /**
- * Exchange authorization code for tokens
+ * Build OAuth URL for implicit flow
  */
-async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            code,
-            client_id: CLIENT_ID,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-            code_verifier: codeVerifier
-        })
-    })
+function buildAuthUrl(prompt = 'consent') {
+    const state = crypto.randomUUID()
+    sessionStorage.setItem('oauth_state', state)
 
-    if (!response.ok) {
-        const error = await response.json()
-        console.error('Token exchange failed:', error)
-        throw new Error(error.error_description || error.error || 'Token exchange failed')
+    const authURL = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+    authURL.searchParams.set('client_id', CLIENT_ID)
+    authURL.searchParams.set('redirect_uri', getRedirectUri())
+    authURL.searchParams.set('response_type', 'token')
+    authURL.searchParams.set('scope', SCOPES.join(' '))
+    authURL.searchParams.set('state', state)
+    authURL.searchParams.set('include_granted_scopes', 'true')
+
+    if (prompt) {
+        authURL.searchParams.set('prompt', prompt)
     }
 
-    return response.json()
+    return { url: authURL.href, state }
 }
 
 /**
- * Refresh the access token using the refresh token
+ * Silent token refresh using hidden iframe with prompt=none
  */
-export async function refreshAccessToken() {
-    const refreshToken = getRefreshToken()
+export function refreshAccessToken() {
+    return new Promise((resolve, reject) => {
+        const { url, state } = buildAuthUrl('none')
 
-    if (!refreshToken) {
-        throw new Error('No refresh token available')
-    }
+        // Create hidden iframe
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts')
 
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            refresh_token: refreshToken,
-            client_id: CLIENT_ID,
-            grant_type: 'refresh_token'
-        })
-    })
+        let timeoutId
+        let resolved = false
 
-    if (!response.ok) {
-        const error = await response.json()
-        // If refresh token is revoked or invalid, clear all tokens
-        if (error.error === 'invalid_grant') {
-            clearTokens()
-            throw new Error('Session expired. Please sign in again.')
+        const cleanup = () => {
+            if (resolved) return
+            resolved = true
+            clearTimeout(timeoutId)
+            window.removeEventListener('message', handleMessage)
+            if (iframe.parentNode) {
+                iframe.parentNode.removeChild(iframe)
+            }
         }
-        throw new Error(error.error_description || error.error || 'Token refresh failed')
-    }
 
-    const data = await response.json()
-    storeTokens(data.access_token, data.expires_in)
+        const handleMessage = (event) => {
+            if (event.origin !== window.location.origin) return
+            if (event.data?.type !== 'oauth-callback') return
 
-    return data.access_token
+            cleanup()
+
+            if (event.data.error) {
+                // Silent refresh failed - user needs to sign in again
+                reject(new Error(event.data.error_description || event.data.error))
+                return
+            }
+
+            const { access_token, expires_in, state: returnedState } = event.data
+            const savedState = sessionStorage.getItem('oauth_state')
+            sessionStorage.removeItem('oauth_state')
+
+            if (returnedState !== savedState) {
+                reject(new Error('State mismatch'))
+                return
+            }
+
+            if (!access_token) {
+                reject(new Error('No access token received'))
+                return
+            }
+
+            storeTokens(access_token, expires_in)
+            resolve(access_token)
+        }
+
+        window.addEventListener('message', handleMessage)
+
+        // Timeout after 10 seconds
+        timeoutId = setTimeout(() => {
+            cleanup()
+            reject(new Error('Silent refresh timed out'))
+        }, 10000)
+
+        document.body.appendChild(iframe)
+        iframe.src = url
+    })
 }
 
 /**
  * Ensure we have a valid access token, refreshing if needed
  */
 export async function ensureValidToken() {
-    if (!isSignedIn()) {
+    if (!getAccessToken()) {
         throw new Error('Not signed in')
     }
 
     if (needsRefresh()) {
-        return refreshAccessToken()
+        try {
+            return await refreshAccessToken()
+        } catch (error) {
+            // Silent refresh failed, token is still valid for a bit
+            if (!isTokenExpired()) {
+                return getAccessToken()
+            }
+            throw new Error('Session expired. Please sign in again.')
+        }
     }
 
     return getAccessToken()
 }
 
 /**
- * Sign in using popup-based OAuth authorization code flow with PKCE
+ * Sign in using popup-based OAuth implicit flow
  */
 export async function signIn() {
-    const state = crypto.randomUUID()
-    const codeVerifier = generateCodeVerifier()
-    const codeChallenge = await generateCodeChallenge(codeVerifier)
-    const redirectUri = getRedirectUri()
-
-    // Store for verification after redirect
-    sessionStorage.setItem('oauth_state', state)
-    sessionStorage.setItem('oauth_code_verifier', codeVerifier)
-    sessionStorage.setItem('oauth_redirect_uri', redirectUri)
-
-    const authURL = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-    authURL.searchParams.set('client_id', CLIENT_ID)
-    authURL.searchParams.set('redirect_uri', redirectUri)
-    authURL.searchParams.set('response_type', 'code')
-    authURL.searchParams.set('scope', SCOPES.join(' '))
-    authURL.searchParams.set('state', state)
-    authURL.searchParams.set('code_challenge', codeChallenge)
-    authURL.searchParams.set('code_challenge_method', 'S256')
-    authURL.searchParams.set('access_type', 'offline')
-    authURL.searchParams.set('prompt', 'consent')
+    const { url, state } = buildAuthUrl('consent')
 
     return new Promise((resolve, reject) => {
         const width = 500
@@ -251,14 +228,13 @@ export async function signIn() {
         const top = window.screenY + (window.outerHeight - height) / 2
 
         const popup = window.open(
-            authURL.href,
+            url,
             'Google Sign In',
             `width=${width},height=${height},left=${left},top=${top},popup=1`
         )
 
         if (!popup) {
             sessionStorage.removeItem('oauth_state')
-            sessionStorage.removeItem('oauth_code_verifier')
             reject(new Error('Popup blocked. Please allow popups for this site.'))
             return
         }
@@ -269,64 +245,46 @@ export async function signIn() {
             if (event.origin !== window.location.origin) return
 
             if (event.data?.type === 'oauth-callback') {
-                // Clear interval first to prevent race condition
                 clearInterval(checkClosed)
                 window.removeEventListener('message', handleMessage)
                 popup.close()
 
                 if (event.data.error) {
                     sessionStorage.removeItem('oauth_state')
-                    sessionStorage.removeItem('oauth_code_verifier')
-                    sessionStorage.removeItem('oauth_redirect_uri')
                     reject(new Error(event.data.error_description || event.data.error))
                     return
                 }
 
-                const { code, state: returnedState } = event.data
+                const { access_token, expires_in, state: returnedState } = event.data
                 const savedState = sessionStorage.getItem('oauth_state')
-                const savedVerifier = sessionStorage.getItem('oauth_code_verifier')
-                const savedRedirectUri = sessionStorage.getItem('oauth_redirect_uri')
-
-                // Clean up
                 sessionStorage.removeItem('oauth_state')
-                sessionStorage.removeItem('oauth_code_verifier')
-                sessionStorage.removeItem('oauth_redirect_uri')
 
                 if (returnedState !== savedState) {
                     reject(new Error('State mismatch - possible CSRF attack'))
                     return
                 }
 
-                if (!code) {
-                    reject(new Error('No authorization code received'))
+                if (!access_token) {
+                    reject(new Error('No access token received'))
                     return
                 }
 
-                try {
-                    // Exchange code for tokens
-                    const tokens = await exchangeCodeForTokens(code, savedVerifier, savedRedirectUri)
-                    storeTokens(tokens.access_token, tokens.expires_in, tokens.refresh_token)
+                storeTokens(access_token, expires_in)
 
-                    // Fetch user email
-                    await fetchUserEmail(tokens.access_token)
+                // Fetch user email
+                await fetchUserEmail(access_token)
 
-                    resolve(tokens.access_token)
-                } catch (error) {
-                    reject(error)
-                }
+                resolve(access_token)
             }
         }
 
         window.addEventListener('message', handleMessage)
 
-        // Check if popup was closed without completing auth
         checkClosed = setInterval(() => {
             if (popup.closed) {
                 clearInterval(checkClosed)
                 window.removeEventListener('message', handleMessage)
                 sessionStorage.removeItem('oauth_state')
-                sessionStorage.removeItem('oauth_code_verifier')
-                sessionStorage.removeItem('oauth_redirect_uri')
                 reject(new Error('Sign in cancelled'))
             }
         }, 500)
@@ -346,7 +304,6 @@ export function signOut() {
 function clearTokens() {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(TOKEN_EXPIRY_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_EMAIL_KEY)
 }
 
@@ -356,9 +313,7 @@ function clearTokens() {
 export function migrateStorageKeys() {
     const oldTokenKey = 'google_tasks_token'
     const oldExpiryKey = 'google_tasks_token_expiry'
-    const oldEmailKey = 'google_user_email'
 
-    // Check if migration is needed
     const oldToken = localStorage.getItem(oldTokenKey)
     if (oldToken && !localStorage.getItem(TOKEN_KEY)) {
         localStorage.setItem(TOKEN_KEY, oldToken)
@@ -370,6 +325,4 @@ export function migrateStorageKeys() {
         localStorage.setItem(TOKEN_EXPIRY_KEY, oldExpiry)
         localStorage.removeItem(oldExpiryKey)
     }
-
-    // Email key stays the same, no migration needed
 }

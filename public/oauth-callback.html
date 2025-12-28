@@ -27,36 +27,43 @@
         <p id="status"></p>
     </div>
     <script>
-        // Authorization code flow returns code in query params
+        // Implicit flow returns token in hash fragment
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
 
-        const code = queryParams.get('code');
-        const state = queryParams.get('state');
-        const error = queryParams.get('error');
-        const errorDescription = queryParams.get('error_description');
+        // Check hash (implicit flow success) and query (error responses)
+        const access_token = hashParams.get('access_token');
+        const expires_in = hashParams.get('expires_in');
+        const state = hashParams.get('state') || queryParams.get('state');
+        const error = hashParams.get('error') || queryParams.get('error');
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
 
-        if (window.opener) {
+        // Send to opener (popup) or parent (iframe)
+        const target = window.opener || window.parent;
+
+        if (target && target !== window) {
             if (error) {
-                window.opener.postMessage({
+                target.postMessage({
                     type: 'oauth-callback',
                     error: error,
                     error_description: errorDescription
                 }, window.location.origin);
-            } else if (code) {
-                window.opener.postMessage({
+            } else if (access_token) {
+                target.postMessage({
                     type: 'oauth-callback',
-                    code: code,
+                    access_token: access_token,
+                    expires_in: expires_in,
                     state: state
                 }, window.location.origin);
             } else {
-                window.opener.postMessage({
+                target.postMessage({
                     type: 'oauth-callback',
-                    error: 'No authorization code received'
+                    error: 'No access token received'
                 }, window.location.origin);
             }
             document.getElementById('status').textContent = 'You can close this window.';
         } else {
-            document.getElementById('status').textContent = 'Error: This page should be opened as a popup.';
+            document.getElementById('status').textContent = 'Error: This page should be opened as a popup or iframe.';
         }
     </script>
 </body>
