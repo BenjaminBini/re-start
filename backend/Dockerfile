@@ -1,11 +1,8 @@
-FROM node:20-alpine
-
-# Install build tools for better-sqlite3
-RUN apk add --no-cache python3 make g++
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install backend dependencies (builds better-sqlite3 from source)
+# Install backend dependencies
 COPY package*.json ./
 RUN npm ci --production
 
