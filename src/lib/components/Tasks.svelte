@@ -23,7 +23,7 @@
     let parsedDate = $state(null)
     let togglingTasks = $state(new Set())
     let syncInProgress = false
-    let googleSignedIn = $state(authState.isSignedIn)
+    let googleAuthStatus = $state(authState.status) // 'unknown' | 'authenticated' | 'unauthenticated'
     let unsubscribeAuth = null
 
     function handleVisibilityChange() {
@@ -35,10 +35,9 @@
     $effect(() => {
         const backend = settings.taskBackend
         const token = settings.todoistApiToken
-        // Use reactive googleSignedIn state for Google Tasks
-        const isGoogleSignedIn = googleSignedIn
+        const authStatus = googleAuthStatus
 
-        console.log('[Tasks] Effect triggered:', { backend, googleSignedIn: isGoogleSignedIn })
+        console.log('[Tasks] Effect triggered:', { backend, authStatus })
 
         if (untrack(() => initialLoad)) {
             initialLoad = false
@@ -46,10 +45,9 @@
             return
         }
 
-        // Only clear Todoist data if the token changed (not the backend)
         const tokenChanged = backend === 'todoist' && previousToken !== token
         previousToken = token
-        initializeAPI(backend, token, tokenChanged)
+        initializeAPI(backend, token, authStatus, tokenChanged)
     })
 
     $effect(() => {
@@ -58,10 +56,8 @@
         })
     })
 
-    async function initializeAPI(backend, token, clearLocalData = false) {
-        // Clear error at start of initialization
-        error = ''
-
+    async function initializeAPI(backend, token, authStatus, clearLocalData = false) {
+        // Check backend-specific requirements
         if (backend === 'todoist' && !token) {
             api = null
             tasks = []
@@ -70,8 +66,7 @@
             return
         }
 
-        if (backend === 'google-tasks' && !googleSignedIn) {
-            console.log('[Tasks] Google Tasks backend but not signed in')
+        if (backend === 'google-tasks' && authStatus === 'unauthenticated') {
             api = null
             tasks = []
             syncing = false
@@ -79,9 +74,11 @@
             return
         }
 
+        // Clear error - we have valid config
+        error = ''
+
         try {
             if (backend === 'google-tasks') {
-                console.log('[Tasks] Initializing Google Tasks backend')
                 api = createTaskBackend(backend)
             } else {
                 api = createTaskBackend(backend, { token })
@@ -92,16 +89,19 @@
                 tasks = []
             }
 
-            // Load cached data immediately if available
+            // Load cached data immediately (works for 'unknown' and 'authenticated')
             const cachedTasks = api.getTasks()
             if (cachedTasks.length > 0) {
                 tasks = cachedTasks
                 syncing = false
             }
 
-            // Sync in background if cache is stale or empty
-            if (api.isCacheStale() || cachedTasks.length === 0) {
+            // Sync in background if authenticated and cache is stale
+            if (authStatus === 'authenticated' && (api.isCacheStale() || cachedTasks.length === 0)) {
                 loadTasks(cachedTasks.length === 0)
+            } else if (authStatus === 'unknown') {
+                // Still waiting for auth check, just show cached data
+                syncing = false
             }
         } catch (err) {
             error = `failed to initialize ${backend} backend`
@@ -270,11 +270,11 @@
     onMount(() => {
         // Subscribe to auth state changes
         unsubscribeAuth = authState.subscribe((state) => {
-            console.log('[Tasks] Auth state update:', state)
-            googleSignedIn = state.isSignedIn
+            console.log('[Tasks] Auth state update:', state.status)
+            googleAuthStatus = state.status
         })
 
-        initializeAPI(settings.taskBackend, settings.todoistApiToken)
+        initializeAPI(settings.taskBackend, settings.todoistApiToken, googleAuthStatus)
         document.addEventListener('visibilitychange', handleVisibilityChange)
     })
 

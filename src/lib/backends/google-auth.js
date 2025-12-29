@@ -30,41 +30,46 @@ function logError(...args) {
     console.error(LOG_PREFIX, ...args)
 }
 
-// Reactive auth state - components can subscribe to changes
+// Auth status: 'unknown' | 'authenticated' | 'unauthenticated'
+// - unknown: initial state, haven't validated token yet
+// - authenticated: token validated successfully
+// - unauthenticated: no token or token invalid
 let authStateListeners = []
 
 export const authState = {
-    isSignedIn: false,
+    status: 'unknown',  // 'unknown' | 'authenticated' | 'unauthenticated'
     email: null,
 
     subscribe(listener) {
         authStateListeners.push(listener)
-        // Immediately call with current state
-        listener({ isSignedIn: this.isSignedIn, email: this.email })
+        listener({ status: this.status, email: this.email })
         return () => {
             authStateListeners = authStateListeners.filter(l => l !== listener)
         }
     },
 
-    update(isSignedIn, email = null) {
-        const changed = this.isSignedIn !== isSignedIn || this.email !== email
-        this.isSignedIn = isSignedIn
-        this.email = email ?? this.email
-        if (changed) {
-            log('Auth state changed:', { isSignedIn, email: this.email })
-            authStateListeners.forEach(l => l({ isSignedIn: this.isSignedIn, email: this.email }))
-        }
+    setAuthenticated(email) {
+        if (this.status === 'authenticated' && this.email === email) return
+        this.status = 'authenticated'
+        this.email = email
+        log('Auth state: authenticated', { email })
+        authStateListeners.forEach(l => l({ status: this.status, email: this.email }))
+    },
+
+    setUnauthenticated() {
+        if (this.status === 'unauthenticated') return
+        this.status = 'unauthenticated'
+        this.email = null
+        log('Auth state: unauthenticated')
+        authStateListeners.forEach(l => l({ status: this.status, email: this.email }))
     }
 }
 
-// Initialize auth state from localStorage
+// Initialize - status stays 'unknown' until tryRestoreSession runs
 function initAuthState() {
-    const token = getAccessToken()
-    const expired = isTokenExpiredInternal()
     const email = localStorage.getItem(USER_EMAIL_KEY)
-    authState.isSignedIn = !!token && !expired
     authState.email = email
-    log('Initial auth state:', { isSignedIn: authState.isSignedIn, email })
+    log('Initial auth state: unknown', { email })
 }
 
 // Internal version that doesn't update state (to avoid circular calls)
@@ -163,14 +168,10 @@ export function hasStoredUserId() {
 }
 
 /**
- * Check if signed in (has valid non-expired token)
+ * Check if authenticated (based on authState status)
  */
 export function isSignedIn() {
-    const token = getAccessToken()
-    const expired = isTokenExpired()
-    const signedIn = !!token && !expired
-    log('isSignedIn check:', { hasToken: !!token, expired, result: signedIn })
-    return signedIn
+    return authState.status === 'authenticated'
 }
 
 /**
@@ -194,8 +195,7 @@ function storeTokens(accessToken, expiresIn, email = null) {
         expiryTime: new Date(expiryTime).toISOString()
     })
 
-    // Update reactive auth state
-    authState.update(true, email)
+    authState.setAuthenticated(email)
 }
 
 /**
@@ -207,8 +207,7 @@ function clearTokens() {
     localStorage.removeItem(TOKEN_EXPIRY_KEY)
     localStorage.removeItem(USER_EMAIL_KEY)
 
-    // Update reactive auth state
-    authState.update(false, null)
+    authState.setUnauthenticated()
 }
 
 /**
@@ -373,7 +372,8 @@ export async function tryRestoreSession() {
 
     const userId = localStorage.getItem(USER_ID_KEY)
     if (!userId) {
-        log('No stored user ID, cannot restore session')
+        log('No stored user ID')
+        authState.setUnauthenticated()
         return false
     }
 
@@ -390,13 +390,13 @@ export async function tryRestoreSession() {
             await refreshToken()
         } catch (error) {
             logError('Session restore failed:', error.message)
+            authState.setUnauthenticated()
             return false
         }
     }
 
-    // Session restored - update auth state
     log('Session restored successfully')
-    authState.update(true, localStorage.getItem(USER_EMAIL_KEY))
+    authState.setAuthenticated(localStorage.getItem(USER_EMAIL_KEY))
     return true
 }
 

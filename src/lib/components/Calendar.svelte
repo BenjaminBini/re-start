@@ -11,7 +11,7 @@
     let error = $state('')
     let eventCount = $derived(events.length)
     let syncInProgress = false
-    let googleSignedIn = $state(authState.isSignedIn)
+    let googleAuthStatus = $state(authState.status)
     let unsubscribeAuth = null
 
     function handleVisibilityChange() {
@@ -21,39 +21,37 @@
     }
 
     $effect(() => {
-        // React to googleSignedIn state changes
-        const isSignedIn = googleSignedIn
+        const authStatus = googleAuthStatus
+        console.log('[Calendar] Effect triggered:', { authStatus })
+        initializeAPI(authStatus)
+    })
 
-        console.log('[Calendar] Effect triggered:', { googleSignedIn: isSignedIn })
-
-        if (isSignedIn) {
-            initializeAPI()
-        } else {
+    async function initializeAPI(authStatus) {
+        if (authStatus === 'unauthenticated') {
             api = null
             events = []
             syncing = false
             error = 'not signed in to google'
+            return
         }
-    })
 
-    async function initializeAPI() {
-        // Clear error at start
         error = ''
 
         try {
-            console.log('[Calendar] Initializing Calendar backend')
             api = createCalendarBackend()
 
-            // Load cached data immediately if available
+            // Load cached data immediately (works for 'unknown' and 'authenticated')
             const cachedEvents = api.getEvents()
             if (cachedEvents.length > 0) {
                 events = cachedEvents
                 syncing = false
             }
 
-            // Sync in background if cache is stale or empty
-            if (api.isCacheStale() || cachedEvents.length === 0) {
+            // Sync in background if authenticated and cache is stale
+            if (authStatus === 'authenticated' && (api.isCacheStale() || cachedEvents.length === 0)) {
                 loadEvents(cachedEvents.length === 0)
+            } else if (authStatus === 'unknown') {
+                syncing = false
             }
         } catch (err) {
             error = 'failed to initialize calendar'
@@ -105,12 +103,10 @@
     }
 
     onMount(() => {
-        // Subscribe to auth state changes
         unsubscribeAuth = authState.subscribe((state) => {
-            console.log('[Calendar] Auth state update:', state)
-            googleSignedIn = state.isSignedIn
+            console.log('[Calendar] Auth state update:', state.status)
+            googleAuthStatus = state.status
         })
-
         document.addEventListener('visibilitychange', handleVisibilityChange)
     })
 

@@ -69,8 +69,7 @@
         saveSettings(settings)
     })
 
-    // Handle OAuth callback on page load (runs once)
-    console.log('[App] Checking for OAuth callback...')
+    // Handle OAuth callback on page load
     const authResult = handleAuthCallback()
     if (authResult?.success) {
         console.log('[App] OAuth callback success')
@@ -78,20 +77,16 @@
         console.error('[App] Auth error:', authResult.error)
     }
 
-    // Try to restore Google session if we have a stored user ID
-    const storedUserId = hasStoredUserId()
-    console.log('[App] hasStoredUserId:', storedUserId, 'authState.isSignedIn:', authState.isSignedIn)
-    if (storedUserId && !authState.isSignedIn && !authResult) {
+    // Try to restore session if we have a stored user ID
+    if (hasStoredUserId() && !authResult) {
         console.log('[App] Attempting session restore...')
-        tryRestoreSession().then((restored) => {
-            console.log('[App] Session restore result:', restored)
-        })
+        tryRestoreSession()
     }
 
-    // Keep settings.googleTasksSignedIn in sync with authState
+    // Sync settings with auth state
     authState.subscribe((state) => {
-        console.log('[App] Auth state changed, syncing settings:', state.isSignedIn)
-        settings.googleTasksSignedIn = state.isSignedIn
+        console.log('[App] Auth state:', state.status)
+        settings.googleTasksSignedIn = state.status === 'authenticated'
         saveSettings(settings)
     })
 
