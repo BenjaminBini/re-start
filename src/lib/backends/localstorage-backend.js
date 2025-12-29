@@ -41,6 +41,11 @@ class LocalStorageBackend extends TaskBackend {
     }
 
     /**
+     * Invalidate cache (no-op for localStorage - it's the source of truth)
+     */
+    invalidateCache() {}
+
+    /**
      * Sync method (no-op for localStorage, but maintains interface)
      */
     async sync(resourceTypes) {

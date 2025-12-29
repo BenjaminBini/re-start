@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte'
     import { createCalendarBackend } from '../backends/index.js'
     import { settings } from '../settings-store.svelte.js'
+    import { RefreshCw } from 'lucide-svelte'
 
     let api = null
     let events = $state([])
@@ -165,6 +166,14 @@
                     {/if}
                 </div>
             </div>
+            <button
+                class="sync-btn"
+                onclick={() => loadEvents(true)}
+                disabled={syncing}
+                title="sync"
+            >
+                <RefreshCw size={14} class={syncing ? 'spinning' : ''} />
+            </button>
         {/if}
     </div>
 </div>
@@ -217,5 +226,33 @@
     }
     a:hover {
         color: var(--txt-1);
+    }
+    .panel {
+        position: relative;
+    }
+    .sync-btn {
+        position: absolute;
+        bottom: 0.25rem;
+        right: 0.25rem;
+        padding: 0;
+        color: var(--txt-3);
+        opacity: 0;
+        transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .sync-btn:hover {
+        color: var(--txt-1);
+    }
+    .sync-btn:disabled {
+        cursor: not-allowed;
+    }
+    .panel:hover .sync-btn {
+        opacity: 1;
+    }
+    :global(.spinning) {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 </style>

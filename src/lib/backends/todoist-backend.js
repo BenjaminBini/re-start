@@ -224,6 +224,13 @@ class TodoistBackend extends TaskBackend {
     }
 
     /**
+     * Invalidate cache to force fresh sync
+     */
+    invalidateCache() {
+        this.data.timestamp = 0
+    }
+
+    /**
      * Complete a task
      */
     async completeTask(taskId) {

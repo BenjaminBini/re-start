@@ -217,6 +217,13 @@ class GoogleTasksBackend extends TaskBackend {
     }
 
     /**
+     * Invalidate cache to force fresh sync
+     */
+    invalidateCache() {
+        this.data.timestamp = 0
+    }
+
+    /**
      * Add a new task
      */
     async addTask(content, due) {

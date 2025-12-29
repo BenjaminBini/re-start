@@ -8,6 +8,7 @@
         stripDateMatch,
         formatTaskDue,
     } from '../date-matcher.js'
+    import { RefreshCw } from 'lucide-svelte'
 
     let api = null
     let tasks = $state([])
@@ -138,6 +139,7 @@
             addingTask = true
             await api.addTask(content, due)
             newTaskContent = ''
+            api.invalidateCache()
             await loadTasks()
         } catch (err) {
             console.error('Failed to add task:', err)
@@ -170,6 +172,7 @@
             } else {
                 await api.uncompleteTask(taskId)
             }
+            api.invalidateCache()
             await loadTasks()
         } catch (err) {
             console.error(err)
@@ -184,9 +187,11 @@
         try {
             tasks = tasks.filter((task) => task.id !== taskId)
             await api.deleteTask(taskId)
+            api.invalidateCache()
             await loadTasks()
         } catch (err) {
             console.error('Failed to delete task:', err)
+            api.invalidateCache()
             await loadTasks()
         }
     }
@@ -363,6 +368,16 @@
                     {/each}
                 </div>
             </div>
+            {#if settings.taskBackend !== 'local'}
+                <button
+                    class="sync-btn"
+                    onclick={() => loadTasks(true)}
+                    disabled={syncing}
+                    title="sync"
+                >
+                    <RefreshCw size={14} class={syncing ? 'spinning' : ''} />
+                </button>
+            {/if}
         {/if}
     </div>
 </div>
@@ -421,5 +436,33 @@
     }
     .checkbox-x {
         color: var(--txt-2);
+    }
+    .panel {
+        position: relative;
+    }
+    .sync-btn {
+        position: absolute;
+        bottom: 0.25rem;
+        right: 0.25rem;
+        padding: 0;
+        color: var(--txt-3);
+        opacity: 0;
+        transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .sync-btn:hover {
+        color: var(--txt-1);
+    }
+    .sync-btn:disabled {
+        cursor: not-allowed;
+    }
+    .panel:hover .sync-btn {
+        opacity: 1;
+    }
+    :global(.spinning) {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 </style>
