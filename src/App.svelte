@@ -15,7 +15,8 @@
 
     let showSettings = $state(false)
     let background = $state(null)
-    let backgroundLoaded = $state(false)
+    let thumbLoaded = $state(false)
+    let fullLoaded = $state(false)
 
     let needsConfiguration = $derived(
         (settings.locationMode === 'manual' &&
@@ -90,7 +91,8 @@
     $effect(() => {
         if (!settings.showBackground) {
             background = null
-            backgroundLoaded = false
+            thumbLoaded = false
+            fullLoaded = false
             return
         }
 
@@ -110,13 +112,18 @@
             })
     })
 
-    function handleBackgroundLoad() {
-        backgroundLoaded = true
+    function handleThumbLoad() {
+        thumbLoaded = true
+    }
+
+    function handleFullLoad() {
+        fullLoaded = true
     }
 
     // Expose refresh function for Settings component
     async function refreshBackground() {
-        backgroundLoaded = false
+        thumbLoaded = false
+        fullLoaded = false
         background = await forceRefreshBackground()
     }
 </script>
@@ -125,14 +132,26 @@
     {#if settings.showBackground && background}
         <div
             class="background"
-            class:loaded={backgroundLoaded}
             style="--bg-opacity: {settings.backgroundOpacity}; --bg-color: {background.color || '#000'}"
         >
+            <!-- Thumbnail: shows immediately, stays visible under full -->
             <img
+                class="thumb"
+                class:loaded={thumbLoaded}
                 src={background.thumbUrl}
                 alt={background.description || 'Background'}
-                onload={handleBackgroundLoad}
+                onload={handleThumbLoad}
             />
+            <!-- Full resolution: only starts loading after thumb is visible -->
+            {#if thumbLoaded}
+                <img
+                    class="full"
+                    class:loaded={fullLoaded}
+                    src={background.fullUrl}
+                    alt={background.description || 'Background'}
+                    onload={handleFullLoad}
+                />
+            {/if}
         </div>
         <a
             class="attribution"
@@ -200,14 +219,24 @@
     }
 
     .background img {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
         opacity: 0;
-        transition: opacity 0.5s ease;
     }
 
-    .background.loaded img {
+    .background img.thumb.loaded {
+        opacity: var(--bg-opacity);
+    }
+
+    .background img.full {
+        transition: opacity 0.8s ease;
+    }
+
+    .background img.full.loaded {
         opacity: var(--bg-opacity);
     }
 

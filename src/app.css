@@ -59,7 +59,6 @@ button {
 
 .panel {
     padding: 1.5rem;
-    border: 2px solid var(--bg-3);
     overflow: hidden;
     width: 100%;
     min-width: 8rem;
