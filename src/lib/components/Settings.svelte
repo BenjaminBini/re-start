@@ -8,8 +8,20 @@
     import { themeNames, themes } from '../themes.js'
     import RadioButton from './RadioButton.svelte'
     import { createTaskBackend, createCalendarBackend } from '../backends/index.js'
+    import { Paintbrush, Plug, Clock, Sun, SquareCheck, Calendar, Link } from 'lucide-svelte'
 
     let { showSettings = false, closeSettings, refreshBackground = null, background = null } = $props()
+
+    const tabs = [
+        { id: 'appearance', icon: Paintbrush, title: 'Appearance' },
+        { id: 'integrations', icon: Plug, title: 'Integrations' },
+        { id: 'clock', icon: Clock, title: 'Clock' },
+        { id: 'weather', icon: Sun, title: 'Weather' },
+        { id: 'tasks', icon: SquareCheck, title: 'Tasks' },
+        { id: 'calendar', icon: Calendar, title: 'Calendar' },
+        { id: 'links', icon: Link, title: 'Links' }
+    ]
+    let activeTab = $state('appearance')
 
     let refreshingBackground = $state(false)
 
@@ -248,10 +260,22 @@
             <button class="close-btn" onclick={handleClose}>x</button>
         </div>
 
+        <nav class="tabs">
+            {#each tabs as tab}
+                <button
+                    class="tab"
+                    class:active={activeTab === tab.id}
+                    onclick={() => activeTab = tab.id}
+                    title={tab.title}
+                >
+                    <tab.icon size={18} strokeWidth={2} />
+                </button>
+            {/each}
+        </nav>
+
         <div class="content">
             <!-- APPEARANCE -->
-            <h3 class="section-title first">appearance</h3>
-
+            {#if activeTab === 'appearance'}
             <div class="group">
                 <div class="setting-label">theme</div>
                 <div class="theme-grid">
@@ -308,8 +332,63 @@
                 </div>
             </div>
 
+            <h3 class="section-title">background</h3>
+
+            <div class="group">
+                <button class="checkbox-label" onclick={() => settings.showBackground = !settings.showBackground}>
+                    <span class="checkbox">{settings.showBackground ? '[x]' : '[ ]'}</span>
+                    enabled
+                </button>
+            </div>
+
+            {#if settings.showBackground}
+                <div class="group">
+                    <label for="bg-opacity">opacity: {Math.round(settings.backgroundOpacity * 100)}%</label>
+                    <input
+                        id="bg-opacity"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        bind:value={settings.backgroundOpacity}
+                    />
+                </div>
+
+                <div class="group">
+                    <div class="background-info">
+                        {#if background}
+                            <span class="bg-topic">{background.topic || 'random'}</span>
+                            <span class="bg-photographer">
+                                by <a href={background.photographer?.profileUrl} target="_blank" rel="noopener noreferrer">{background.photographer?.name}</a>
+                            </span>
+                        {:else}
+                            <span class="bg-loading">loading...</span>
+                        {/if}
+                        <button
+                            class="button"
+                            onclick={handleRefreshBackground}
+                            disabled={refreshingBackground}
+                        >
+                            [{refreshingBackground ? '...' : 'new image'}]
+                        </button>
+                    </div>
+                </div>
+            {/if}
+
+            <h3 class="section-title">custom css</h3>
+
+            <div class="group">
+                <textarea
+                    id="custom-css"
+                    bind:value={settings.customCSS}
+                    placeholder="/* add your custom styles here */"
+                    rows="6"
+                ></textarea>
+            </div>
+            {/if}
+
             <!-- INTEGRATIONS -->
-            <h3 class="section-title">integrations</h3>
+            {#if activeTab === 'integrations'}
 
             <div class="integration-card">
                 <div class="integration-header">
@@ -352,9 +431,10 @@
                     />
                 </div>
             </div>
+            {/if}
 
             <!-- CLOCK -->
-            <h3 class="section-title">clock</h3>
+            {#if activeTab === 'clock'}
 
             <div class="format-grid">
                 <div class="group">
@@ -380,10 +460,10 @@
                     </div>
                 </div>
             </div>
+            {/if}
 
             <!-- WEATHER -->
-            <h3 class="section-title">weather</h3>
-
+            {#if activeTab === 'weather'}
             <div class="group">
                 <button class="checkbox-label" onclick={() => settings.showWeather = !settings.showWeather}>
                     <span class="checkbox">{settings.showWeather ? '[x]' : '[ ]'}</span>
@@ -475,10 +555,10 @@
                     </div>
                 </div>
             {/if}
+            {/if}
 
             <!-- TASKS -->
-            <h3 class="section-title">tasks</h3>
-
+            {#if activeTab === 'tasks'}
             <div class="group">
                 <button class="checkbox-label" onclick={() => settings.showTasks = !settings.showTasks}>
                     <span class="checkbox">{settings.showTasks ? '[x]' : '[ ]'}</span>
@@ -525,11 +605,11 @@
                     </div>
                 </div>
             {/if}
+            {/if}
 
             <!-- CALENDAR -->
+            {#if activeTab === 'calendar'}
             {#if settings.googleTasksSignedIn}
-                <h3 class="section-title">calendar</h3>
-
                 <div class="group">
                     <button class="checkbox-label" onclick={() => settings.showCalendar = !settings.showCalendar}>
                         <span class="checkbox">{settings.showCalendar ? '[x]' : '[ ]'}</span>
@@ -566,54 +646,15 @@
                         {/if}
                     </div>
                 {/if}
+            {:else}
+                <div class="calendar-not-signed-in">
+                    sign in to google in integrations tab
+                </div>
             {/if}
-
-            <!-- BACKGROUND -->
-            <h3 class="section-title">background</h3>
-
-            <div class="group">
-                <button class="checkbox-label" onclick={() => settings.showBackground = !settings.showBackground}>
-                    <span class="checkbox">{settings.showBackground ? '[x]' : '[ ]'}</span>
-                    enabled
-                </button>
-            </div>
-
-            {#if settings.showBackground}
-                <div class="group">
-                    <label for="bg-opacity">opacity: {Math.round(settings.backgroundOpacity * 100)}%</label>
-                    <input
-                        id="bg-opacity"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        bind:value={settings.backgroundOpacity}
-                    />
-                </div>
-
-                <div class="group">
-                    <div class="background-info">
-                        {#if background}
-                            <span class="bg-topic">{background.topic || 'random'}</span>
-                            <span class="bg-photographer">
-                                by <a href={background.photographer?.profileUrl} target="_blank" rel="noopener noreferrer">{background.photographer?.name}</a>
-                            </span>
-                        {:else}
-                            <span class="bg-loading">loading...</span>
-                        {/if}
-                        <button
-                            class="button"
-                            onclick={handleRefreshBackground}
-                            disabled={refreshingBackground}
-                        >
-                            [{refreshingBackground ? '...' : 'new image'}]
-                        </button>
-                    </div>
-                </div>
             {/if}
 
             <!-- LINKS -->
-            <h3 class="section-title">links</h3>
+            {#if activeTab === 'links'}
 
             <div class="group">
                 <button class="checkbox-label" onclick={() => settings.showLinks = !settings.showLinks}>
@@ -699,19 +740,7 @@
                     </div>
                 </div>
             {/if}
-
-            <!-- ADVANCED -->
-            <h3 class="section-title">advanced</h3>
-
-            <div class="group">
-                <label for="custom-css">custom css</label>
-                <textarea
-                    id="custom-css"
-                    bind:value={settings.customCSS}
-                    placeholder="/* add your custom styles here */"
-                    rows="6"
-                ></textarea>
-            </div>
+            {/if}
 
             <!-- FOOTER -->
             <div class="version">
@@ -768,6 +797,29 @@
         font-size: 1.5rem;
         line-height: 2.25rem;
         font-weight: 300;
+    }
+    .tabs {
+        display: flex;
+        border-bottom: 2px solid var(--bg-3);
+        padding: 0 1rem;
+    }
+    .tab {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        color: var(--txt-3);
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+    .tab:hover {
+        color: var(--txt-2);
+    }
+    .tab.active {
+        color: var(--txt-1);
+        border-bottom: 2px solid var(--txt-2);
+        margin-bottom: -2px;
     }
     .content {
         flex: 1;
@@ -927,7 +979,7 @@
         text-transform: uppercase;
         letter-spacing: 0.1em;
     }
-    .section-title.first {
+    .section-title:first-child {
         margin-top: 0;
     }
     .inline-group {
@@ -1065,5 +1117,8 @@
         color: var(--txt-3);
         font-size: 0.75rem;
         margin-top: 0.5rem;
+    }
+    .calendar-not-signed-in {
+        color: var(--txt-3);
     }
 </style>
