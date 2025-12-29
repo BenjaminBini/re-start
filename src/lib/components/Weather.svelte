@@ -13,6 +13,14 @@
 
     const api = new WeatherAPI()
 
+    // Load cached data immediately on init
+    const cachedData = api.getWeather(settings.timeFormat)
+    if (cachedData) {
+        current = cachedData.current
+        forecast = cachedData.forecast
+        syncing = false
+    }
+
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible') {
             loadWeather()
