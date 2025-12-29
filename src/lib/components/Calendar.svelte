@@ -271,6 +271,7 @@
     .event-video {
         display: inline-flex;
         align-items: center;
+        gap: 0.25ch;
         color: var(--txt-3);
     }
     .event-video:hover {
