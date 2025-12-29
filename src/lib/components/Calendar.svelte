@@ -50,7 +50,7 @@
         try {
             if (showSyncing) syncing = true
             error = ''
-            await api.sync()
+            await api.sync(settings.selectedCalendars)
             events = api.getEvents()
         } catch (err) {
             error = 'failed to sync calendar'

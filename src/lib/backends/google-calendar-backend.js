@@ -67,7 +67,7 @@ class GoogleCalendarBackend {
     /**
      * Sync calendar events from Google Calendar API
      */
-    async sync() {
+    async sync(selectedCalendarIds = []) {
         if (!this.getIsSignedIn()) {
             throw new Error('Not signed in to Google account')
         }
@@ -79,10 +79,19 @@ class GoogleCalendarBackend {
 
             console.log('Google Calendar: found', this.data.calendars.length, 'calendars')
 
-            // Get today's events from all calendars
+            // Filter to selected calendars if specified
+            let calendarsToSync = this.data.calendars
+            if (selectedCalendarIds && selectedCalendarIds.length > 0) {
+                calendarsToSync = this.data.calendars.filter(cal => 
+                    selectedCalendarIds.includes(cal.id)
+                )
+                console.log('Google Calendar: syncing', calendarsToSync.length, 'selected calendars')
+            }
+
+            // Get today's events from calendars
             const { timeMin, timeMax } = this.getTodayBounds()
 
-            const eventPromises = this.data.calendars.map(async (calendar) => {
+            const eventPromises = calendarsToSync.map(async (calendar) => {
                 try {
                     const eventsData = await this.apiRequest(
                         `/calendars/${encodeURIComponent(calendar.id)}/events?` +
@@ -174,6 +183,33 @@ class GoogleCalendarBackend {
     /**
      * Clear local storage
      */
+
+    /**
+     * Get list of available calendars (requires sync to be called first)
+     */
+    getCalendars() {
+        return this.data.calendars || []
+    }
+
+    /**
+     * Fetch calendar list from API (for settings UI)
+     */
+    async fetchCalendarList() {
+        if (!this.getIsSignedIn()) {
+            throw new Error('Not signed in to Google account')
+        }
+
+        const calendarsData = await this.apiRequest('/users/me/calendarList?maxResults=50')
+        const calendars = (calendarsData.items || []).map(cal => ({
+            id: cal.id,
+            name: cal.summary,
+            color: cal.backgroundColor,
+            primary: cal.primary || false
+        }))
+
+        return calendars
+    }
+
     clearLocalData() {
         localStorage.removeItem(this.dataKey)
         this.data = {}

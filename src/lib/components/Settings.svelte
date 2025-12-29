@@ -7,7 +7,7 @@
     } from '../settings-store.svelte.js'
     import { themeNames, themes } from '../themes.js'
     import RadioButton from './RadioButton.svelte'
-    import { createTaskBackend } from '../backends/index.js'
+    import { createTaskBackend, createCalendarBackend } from '../backends/index.js'
 
     let { showSettings = false, closeSettings, refreshBackground = null, background = null } = $props()
 
@@ -20,6 +20,40 @@
     let signingIn = $state(false)
     let signInError = $state('')
     let googleUserEmail = $state(localStorage.getItem('google_user_email') || '')
+
+    // Calendar selection
+    let availableCalendars = $state([])
+    let loadingCalendars = $state(false)
+
+    async function fetchCalendars() {
+        if (!settings.googleTasksSignedIn) return
+
+        try {
+            loadingCalendars = true
+            const calendarApi = createCalendarBackend()
+            availableCalendars = await calendarApi.fetchCalendarList()
+        } catch (err) {
+            console.error('Failed to fetch calendars:', err)
+            availableCalendars = []
+        } finally {
+            loadingCalendars = false
+        }
+    }
+
+    function toggleCalendar(calendarId) {
+        if (settings.selectedCalendars.includes(calendarId)) {
+            settings.selectedCalendars = settings.selectedCalendars.filter(id => id !== calendarId)
+        } else {
+            settings.selectedCalendars = [...settings.selectedCalendars, calendarId]
+        }
+    }
+
+    // Fetch calendars when settings opens and user is signed in
+    $effect(() => {
+        if (showSettings && settings.googleTasksSignedIn && settings.showCalendar) {
+            fetchCalendars()
+        }
+    })
 
     async function handleGoogleSignIn() {
         try {
@@ -502,6 +536,40 @@
                         enabled
                     </label>
                 </div>
+
+                {#if settings.showCalendar}
+                    <div class="group">
+                        <div class="setting-label">calendars</div>
+                        {#if loadingCalendars}
+                            <div class="calendar-loading">loading...</div>
+                        {:else if availableCalendars.length === 0}
+                            <div class="calendar-loading">no calendars found</div>
+                        {:else}
+                            <div class="calendar-list">
+                                {#each availableCalendars as calendar}
+                                    <label class="checkbox-label calendar-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.selectedCalendars.length === 0 || settings.selectedCalendars.includes(calendar.id)}
+                                            onchange={() => toggleCalendar(calendar.id)}
+                                        />
+                                        <span
+                                            class="calendar-color"
+                                            style="background-color: {calendar.color}"
+                                        ></span>
+                                        <span class="calendar-name">{calendar.name}</span>
+                                        {#if calendar.primary}
+                                            <span class="calendar-primary">(primary)</span>
+                                        {/if}
+                                    </label>
+                                {/each}
+                            </div>
+                            {#if settings.selectedCalendars.length === 0}
+                                <div class="calendar-hint">all calendars shown</div>
+                            {/if}
+                        {/if}
+                    </div>
+                {/if}
             {/if}
 
             <!-- BACKGROUND -->
@@ -964,5 +1032,39 @@
     }
     .bg-loading {
         color: var(--txt-3);
+    }
+    .calendar-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .calendar-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .calendar-color {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    .calendar-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .calendar-primary {
+        color: var(--txt-3);
+        font-size: 0.75rem;
+    }
+    .calendar-loading {
+        color: var(--txt-3);
+    }
+    .calendar-hint {
+        color: var(--txt-3);
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
     }
 </style>

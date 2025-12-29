@@ -20,6 +20,7 @@ let defaultSettings = {
     taskBackend: 'local',
     // Calendar
     showCalendar: true,
+    selectedCalendars: [], // Array of calendar IDs to show events from
     // Background
     showBackground: false,
     backgroundOpacity: 0.15,
