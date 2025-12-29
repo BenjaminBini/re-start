@@ -51,6 +51,13 @@ class GoogleTasksBackend extends TaskBackend {
     }
 
     /**
+     * Ensure we have a valid token, refreshing if needed
+     */
+    async ensureValidToken() {
+        return googleAuth.ensureValidToken()
+    }
+
+    /**
      * Make an authenticated API request with auto-refresh
      */
     async apiRequest(endpoint, options = {}) {

@@ -73,7 +73,11 @@
             if (backend === 'google-tasks') {
                 api = createTaskBackend(backend)
 
-                if (!api.getIsSignedIn()) {
+                // Try to ensure we have a valid token (will refresh if needed)
+                try {
+                    await api.ensureValidToken()
+                } catch (tokenError) {
+                    console.log('[Tasks] Token validation failed:', tokenError.message)
                     settings.googleTasksSignedIn = false
                     error = 'google sign in expired'
                     syncing = false
