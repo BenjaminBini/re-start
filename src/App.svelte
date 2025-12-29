@@ -277,6 +277,9 @@
     .widgets {
         display: contents;
     }
+    .widgets :global(.panel-wrapper) {
+        height: 336px;
+    }
     .settings-btn {
         position: fixed;
         top: 0;
