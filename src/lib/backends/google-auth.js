@@ -75,6 +75,31 @@ function isTokenExpiredInternal() {
 }
 
 /**
+ * Validate token by making a test API call to Google
+ * Returns true if token is valid, false otherwise
+ */
+async function validateToken(token) {
+    if (!token) return false
+
+    try {
+        log('Validating token with Google API...')
+        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + token)
+
+        if (response.ok) {
+            log('Token is valid')
+            return true
+        } else {
+            const data = await response.json()
+            logWarn('Token validation failed:', data.error || response.status)
+            return false
+        }
+    } catch (error) {
+        logError('Token validation error:', error.message)
+        return false
+    }
+}
+
+/**
  * Generate a UUID v4
  */
 function generateUUID() {
@@ -346,12 +371,6 @@ export async function signOut() {
 export async function tryRestoreSession() {
     log('Attempting to restore session...')
 
-    // Already have valid token
-    if (isSignedIn()) {
-        log('Session already active (valid token exists)')
-        return true
-    }
-
     // Check if we have a stored user_id (indicates previous session)
     const userId = localStorage.getItem(USER_ID_KEY)
     if (!userId) {
@@ -359,7 +378,25 @@ export async function tryRestoreSession() {
         return false
     }
 
-    log('Found stored user ID:', userId, '- attempting token refresh')
+    // Check if we have a token that appears valid
+    const token = getAccessToken()
+    const expired = isTokenExpiredInternal()
+
+    if (token && !expired) {
+        // Token appears valid based on localStorage, but validate it with Google
+        log('Token appears valid, validating with Google...')
+        const isValid = await validateToken(token)
+
+        if (isValid) {
+            log('Token validated successfully')
+            authState.update(true, localStorage.getItem(USER_EMAIL_KEY))
+            return true
+        }
+
+        log('Token validation failed, attempting refresh...')
+    } else {
+        log('No valid token (expired:', expired, '), attempting refresh...')
+    }
 
     // Try to refresh the token
     try {
