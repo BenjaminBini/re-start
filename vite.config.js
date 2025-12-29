@@ -50,6 +50,7 @@ export default defineConfig({
         __APP_VERSION__: JSON.stringify(manifest.version),
     },
     server: {
+        port: 5999,
         proxy: {
             '/api': {
                 target: 'http://localhost:3004',

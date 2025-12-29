@@ -68,15 +68,14 @@
         saveSettings(settings)
     })
 
-    // Handle OAuth callback on page load
-    $effect(() => {
-        const result = handleAuthCallback()
-        if (result?.success) {
-            settings.googleTasksSignedIn = true
-        } else if (result?.error) {
-            console.error('Auth error:', result.error)
-        }
-    })
+    // Handle OAuth callback on page load (runs once)
+    const authResult = handleAuthCallback()
+    if (authResult?.success) {
+        settings.googleTasksSignedIn = true
+        saveSettings(settings)
+    } else if (authResult?.error) {
+        console.error('Auth error:', authResult.error)
+    }
 
     // Toggle body class for background blur effect
     $effect(() => {

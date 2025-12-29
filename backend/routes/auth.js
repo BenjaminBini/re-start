@@ -6,7 +6,7 @@ const router = Router()
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3004'
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5999'
 
 const SCOPES = [
     'https://www.googleapis.com/auth/tasks',
