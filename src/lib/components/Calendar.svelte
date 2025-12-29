@@ -8,6 +8,7 @@
     let syncing = $state(true)
     let error = $state('')
     let eventCount = $derived(events.length)
+    let syncInProgress = false
 
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible' && api) {
@@ -57,16 +58,20 @@
     }
 
     async function loadEvents(showSyncing = false) {
+        if (syncInProgress) return
+        syncInProgress = true
         try {
             if (showSyncing) syncing = true
             error = ''
-            await api.sync(settings.selectedCalendars)
+            const calendars = settings.selectedCalendars
+            await api.sync(calendars)
             events = api.getEvents()
         } catch (err) {
             error = 'failed to sync calendar'
             console.error(err)
         } finally {
             syncing = false
+            syncInProgress = false
         }
     }
 

@@ -20,6 +20,7 @@
     let addingTask = $state(false)
     let parsedDate = $state(null)
     let togglingTasks = $state(new Set())
+    let syncInProgress = false
 
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible' && api) {
@@ -105,6 +106,8 @@
     }
 
     async function loadTasks(showSyncing = false) {
+        if (syncInProgress) return
+        syncInProgress = true
         try {
             if (showSyncing) syncing = true
             error = ''
@@ -115,6 +118,7 @@
             console.error(err)
         } finally {
             if (showSyncing) syncing = false
+            syncInProgress = false
         }
     }
 
