@@ -228,6 +228,33 @@ export async function signOut() {
 }
 
 /**
+ * Try to restore a previous session by refreshing the token
+ * Call this on page load when settings indicate user was signed in
+ * Returns true if session was restored, false otherwise
+ */
+export async function tryRestoreSession() {
+    // Already have valid token
+    if (isSignedIn()) {
+        return true
+    }
+
+    // Check if we have a stored user_id (indicates previous session)
+    const userId = localStorage.getItem(USER_ID_KEY)
+    if (!userId) {
+        return false
+    }
+
+    // Try to refresh the token
+    try {
+        await refreshToken()
+        return true
+    } catch (error) {
+        // Refresh failed - no valid session
+        return false
+    }
+}
+
+/**
  * Migrate from old storage keys to new ones
  */
 export function migrateStorageKeys() {

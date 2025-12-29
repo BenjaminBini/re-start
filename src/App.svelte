@@ -3,7 +3,7 @@
     import { settings } from './lib/settings-store.svelte.js'
     import { themes } from './lib/themes.js'
     import { getBackground, loadCachedBackground, forceRefreshBackground } from './lib/unsplash-api.js'
-    import { handleAuthCallback } from './lib/backends/google-auth.js'
+    import { handleAuthCallback, tryRestoreSession } from './lib/backends/google-auth.js'
     import Calendar from './lib/components/Calendar.svelte'
     import Clock from './lib/components/Clock.svelte'
     import Links from './lib/components/Links.svelte'
@@ -76,6 +76,16 @@
         saveSettings(settings)
     } else if (authResult?.error) {
         console.error('Auth error:', authResult.error)
+    }
+
+    // Try to restore Google session if user was previously signed in
+    if (settings.googleTasksSignedIn && !authResult) {
+        tryRestoreSession().then((restored) => {
+            if (!restored) {
+                settings.googleTasksSignedIn = false
+                saveSettings(settings)
+            }
+        })
     }
 
     // Toggle body class for background blur effect
