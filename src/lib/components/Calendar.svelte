@@ -3,7 +3,7 @@
     import { createCalendarBackend } from '../backends/index.js'
     import { settings } from '../settings-store.svelte.js'
     import { authState } from '../backends/google-auth.js'
-    import { RefreshCw, Video } from 'lucide-svelte'
+    import { RefreshCw, Video, MapPin } from 'lucide-svelte'
 
     function getVideoProvider(url) {
         if (!url) return null
@@ -170,7 +170,10 @@
                                 {#if event.location || videoProvider}
                                     <div class="event-meta">
                                         {#if event.location}
-                                            <span class="event-location">{event.location}</span>
+                                            <span class="event-location">
+                                                <MapPin size={12} />
+                                                {event.location}
+                                            </span>
                                         {/if}
                                         {#if videoProvider}
                                             <a
@@ -255,6 +258,11 @@
         gap: 1ch;
         font-size: 0.8rem;
         color: var(--txt-3);
+    }
+    .event-location {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25ch;
     }
     .event-video {
         display: inline-flex;
