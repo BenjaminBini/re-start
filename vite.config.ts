@@ -1,16 +1,25 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import fs from 'fs'
 
+interface Manifest {
+    version: string
+    [key: string]: unknown
+}
+
 // Read version from manifest.json at build time
-const manifest = JSON.parse(fs.readFileSync('./public/manifest.json', 'utf-8'))
+const manifest: Manifest = JSON.parse(fs.readFileSync('./public/manifest.json', 'utf-8'))
 
 // Plugin to inject theme data into HTML
-function injectThemeScript() {
+function injectThemeScript(): Plugin {
     return {
         name: 'inject-theme-script',
-        transformIndexHtml(html) {
-            const themesModule = fs.readFileSync('./src/lib/themes.js', 'utf-8')
+        transformIndexHtml(html: string): string {
+            // Try .ts first, fall back to .js
+            const themesPath = fs.existsSync('./src/lib/themes.ts')
+                ? './src/lib/themes.ts'
+                : './src/lib/themes.js'
+            const themesModule = fs.readFileSync(themesPath, 'utf-8')
 
             const themesMatch = themesModule.match(
                 /export const themes = ({[\s\S]*?})\s*export const themeNames/
@@ -19,7 +28,7 @@ function injectThemeScript() {
                 /export const defaultTheme = ['"](.+?)['"]/
             )
 
-            if (!themesMatch || !defaultThemeMatch) {
+            if (!themesMatch?.[1] || !defaultThemeMatch?.[1]) {
                 console.error('Failed to extract theme data')
                 return html
             }
@@ -32,10 +41,10 @@ function injectThemeScript() {
 }
 
 // Plugin to exclude manifest.json from public copy (we'll generate it separately)
-function excludeManifest() {
+function excludeManifest(): Plugin {
     return {
         name: 'exclude-manifest',
-        generateBundle(options, bundle) {
+        generateBundle(_options, bundle) {
             // Remove manifest.json from bundle if Vite copied it
             delete bundle['manifest.json']
         },

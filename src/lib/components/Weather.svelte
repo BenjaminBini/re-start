@@ -1,13 +1,14 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy, untrack } from 'svelte'
-    import WeatherAPI from '../weather-api.js'
-    import { settings } from '../settings-store.svelte.js'
+    import WeatherAPI from '../weather-api'
+    import { settings } from '../settings-store.svelte'
     import { RefreshCw } from 'lucide-svelte'
+    import type { ProcessedCurrentWeather, ForecastItem } from '../types'
 
-    let current = $state(null)
-    let forecast = $state([])
+    let current = $state<ProcessedCurrentWeather | null>(null)
+    let forecast = $state<ForecastItem[]>([])
     let syncing = $state(true)
-    let error = $state(null)
+    let error = $state<string | null>(null)
     let initialLoad = $state(true)
     let syncInProgress = false
 
@@ -44,7 +45,7 @@
         loadWeather(true)
     })
 
-    async function getCurrentLocation() {
+    async function getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
                 reject(new Error('geolocation not supported'))
@@ -70,7 +71,7 @@
         })
     }
 
-    async function getCoordinates() {
+    async function getCoordinates(): Promise<{ latitude: number; longitude: number }> {
         if (settings.locationMode === 'auto') {
             try {
                 return await getCurrentLocation()
@@ -90,7 +91,7 @@
         }
     }
 
-    export async function loadWeather(showSyncing = false) {
+    export async function loadWeather(showSyncing = false): Promise<void> {
         if (syncInProgress) return
         syncInProgress = true
 
@@ -121,7 +122,7 @@
                 forecast = freshData.forecast
             }
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
             console.error(err)
         } finally {
             syncing = false
@@ -219,6 +220,9 @@
 <style>
     .panel-wrapper {
         flex-shrink: 0;
+    }
+    .panel {
+        mask-image: none;
     }
     .temp {
         font-size: 2rem;

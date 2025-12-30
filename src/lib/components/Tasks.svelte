@@ -1,30 +1,34 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy, untrack } from 'svelte'
-    import { createTaskBackend } from '../backends/index.js'
-    import { settings } from '../settings-store.svelte.js'
-    import { authState } from '../backends/google-auth.js'
+    import { createTaskBackend } from '../backends/index'
+    import { settings } from '../settings-store.svelte'
+    import { authState } from '../backends/google-auth'
     import AddTask from './AddTask.svelte'
     import {
         parseSmartDate,
         stripDateMatch,
         formatTaskDue,
-    } from '../date-matcher.js'
+    } from '../date-matcher'
     import { RefreshCw } from 'lucide-svelte'
+    import type TaskBackend from '../backends/task-backend'
+    import type { EnrichedTask, ParsedDate, TaskBackendType } from '../types'
 
-    let api = null
-    let tasks = $state([])
+    type AuthStatus = 'unknown' | 'authenticated' | 'unauthenticated'
+
+    let api: TaskBackend | null = null
+    let tasks = $state<EnrichedTask[]>([])
     let syncing = $state(true)
     let error = $state('')
     let initialLoad = $state(true)
-    let previousToken = $state(null)
+    let previousToken = $state<string | null>(null)
     let taskCount = $derived(tasks.filter((task) => !task.checked).length)
     let newTaskContent = $state('')
     let addingTask = $state(false)
-    let parsedDate = $state(null)
-    let togglingTasks = $state(new Set())
+    let parsedDate = $state<ParsedDate | null>(null)
+    let togglingTasks = $state(new Set<string>())
     let syncInProgress = false
-    let googleAuthStatus = $state(authState.status) // 'unknown' | 'authenticated' | 'unauthenticated'
-    let unsubscribeAuth = null
+    let googleAuthStatus = $state<AuthStatus>(authState.status as AuthStatus)
+    let unsubscribeAuth: (() => void) | null = null
 
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible' && api) {
@@ -56,7 +60,7 @@
         })
     })
 
-    async function initializeAPI(backend, token, authStatus, clearLocalData = false) {
+    async function initializeAPI(backend: TaskBackendType, token: string, authStatus: AuthStatus, clearLocalData = false): Promise<void> {
         // Check backend-specific requirements
         if (backend === 'todoist' && !token) {
             api = null
@@ -110,7 +114,7 @@
         }
     }
 
-    async function loadTasks(showSyncing = false) {
+    async function loadTasks(showSyncing = false): Promise<void> {
         if (syncInProgress) return
         syncInProgress = true
         try {
@@ -127,7 +131,7 @@
         }
     }
 
-    async function addTask(event) {
+    async function addTask(event: SubmitEvent): Promise<void> {
         event.preventDefault()
         const raw = newTaskContent.trim()
         if (!raw || !api || addingTask) return
@@ -152,7 +156,7 @@
         }
     }
 
-    async function toggleTask(taskId, checked) {
+    async function toggleTask(taskId: string, checked: boolean): Promise<void> {
         // Prevent concurrent toggles of the same task
         if (togglingTasks.has(taskId)) return
 
@@ -186,7 +190,7 @@
         }
     }
 
-    async function deleteTask(taskId) {
+    async function deleteTask(taskId: string): Promise<void> {
         if (!api) return
         try {
             tasks = tasks.filter((task) => task.id !== taskId)
@@ -200,13 +204,13 @@
         }
     }
 
-    function isTaskOverdue(task) {
+    function isTaskOverdue(task: EnrichedTask): boolean {
         if (!task.due || task.checked) return false
         const now = new Date()
         return task.due_date.getTime() < now.getTime()
     }
 
-    function formatDueDate(date, hasTime) {
+    function formatDueDate(date: Date | null, hasTime: boolean): string {
         if (!date) return ''
 
         const now = new Date()

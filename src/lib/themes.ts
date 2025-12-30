@@ -1,4 +1,6 @@
-export const themes = {
+import type { ThemeMap } from './types'
+
+export const themes: ThemeMap = {
     default: {
         displayName: 'default',
         colors: {
@@ -105,6 +107,6 @@ export const themes = {
     },
 }
 
-export const themeNames = Object.keys(themes)
+export const themeNames: string[] = Object.keys(themes)
 
-export const defaultTheme = 'default'
+export const defaultTheme: string = 'default'

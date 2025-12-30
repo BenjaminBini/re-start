@@ -1,10 +1,18 @@
-import TaskBackend from './task-backend.js'
+import TaskBackend from './task-backend'
+import type { TaskBackendConfig, EnrichedTask, RawTask, TaskDue } from '../types'
+
+interface LocalTaskData {
+    items: RawTask[]
+}
 
 /**
  * LocalStorage-based task backend for offline task management
  */
 class LocalStorageBackend extends TaskBackend {
-    constructor(config) {
+    private dataKey: string
+    protected override data: LocalTaskData
+
+    constructor(config: TaskBackendConfig) {
         super(config)
         this.dataKey = 'local_tasks'
         this.data = this.loadData()
@@ -13,13 +21,13 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Load tasks from localStorage
      */
-    loadData() {
+    private loadData(): LocalTaskData {
         const stored = localStorage.getItem(this.dataKey)
         if (!stored) {
             return { items: [] }
         }
         try {
-            return JSON.parse(stored)
+            return JSON.parse(stored) as LocalTaskData
         } catch (error) {
             console.error('Failed to parse local tasks:', error)
             return { items: [] }
@@ -29,26 +37,26 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Save tasks to localStorage
      */
-    saveData() {
+    private saveData(): void {
         localStorage.setItem(this.dataKey, JSON.stringify(this.data))
     }
 
     /**
      * Check if cache is stale (always false for localStorage - it's the source of truth)
      */
-    isCacheStale() {
+    override isCacheStale(): boolean {
         return false
     }
 
     /**
      * Invalidate cache (no-op for localStorage - it's the source of truth)
      */
-    invalidateCache() {}
+    override invalidateCache(): void {}
 
     /**
      * Sync method (no-op for localStorage, but maintains interface)
      */
-    async sync(resourceTypes) {
+    async sync(_resourceTypes?: string[]): Promise<void> {
         // LocalStorage doesn't need to sync with a server
         // This method exists to maintain interface compatibility
     }
@@ -56,7 +64,7 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Get upcoming tasks and recently completed tasks
      */
-    getTasks() {
+    getTasks(): EnrichedTask[] {
         if (!this.data.items) return []
 
         const recentThreshold = new Date(new Date().getTime() - 5 * 60 * 1000) // 5 minutes ago
@@ -76,8 +84,8 @@ class LocalStorageBackend extends TaskBackend {
 
                 return false
             })
-            .map((item) => {
-                let dueDate = null
+            .map((item): EnrichedTask => {
+                let dueDate: Date | null = null
                 let hasTime = false
 
                 if (item.due) {
@@ -105,7 +113,7 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Complete a task
      */
-    async completeTask(taskId) {
+    async completeTask(taskId: string): Promise<void> {
         const task = this.data.items.find((item) => item.id === taskId)
         if (task) {
             task.checked = true
@@ -117,7 +125,7 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Uncomplete a task (undo completion)
      */
-    async uncompleteTask(taskId) {
+    async uncompleteTask(taskId: string): Promise<void> {
         const task = this.data.items.find((item) => item.id === taskId)
         if (task) {
             task.checked = false
@@ -129,7 +137,7 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Delete a task
      */
-    async deleteTask(taskId) {
+    async deleteTask(taskId: string): Promise<void> {
         const idx = this.data.items.findIndex((item) => item.id === taskId)
         if (idx !== -1) {
             this.data.items.splice(idx, 1)
@@ -140,13 +148,14 @@ class LocalStorageBackend extends TaskBackend {
     /**
      * Add a new task
      */
-    async addTask(content, due) {
-        const newTask = {
+    async addTask(content: string, due: string | null): Promise<void> {
+        const newDue: TaskDue | null = due ? { date: due } : null
+        const newTask: RawTask = {
             id: crypto.randomUUID(),
             content: content,
             checked: false,
             completed_at: null,
-            due: due ? { date: due } : null,
+            due: newDue,
             project_id: null,
             labels: [],
             child_order: this.data.items.length,
@@ -163,19 +172,19 @@ class LocalStorageBackend extends TaskBackend {
      * Clearing it would permanently delete user tasks, which is not equivalent behavior.
      * Task deletion should be done explicitly through a separate UI action if needed.
      */
-    clearLocalData() {}
+    clearLocalData(): void {}
 
     /**
      * Get project name by ID (always empty for localStorage)
      */
-    getProjectName(projectId) {
+    override getProjectName(_projectId: string): string {
         return ''
     }
 
     /**
      * Get label names by IDs (always empty for localStorage)
      */
-    getLabelNames(labelIds) {
+    override getLabelNames(_labelIds: string[]): string[] {
         return []
     }
 }

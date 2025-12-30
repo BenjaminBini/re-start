@@ -1,5 +1,5 @@
-<script>
-    import { settings } from '../../settings-store.svelte.js'
+<script lang="ts">
+    import { settings } from '../../settings-store.svelte'
     import RadioButton from '../RadioButton.svelte'
 </script>
 

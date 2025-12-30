@@ -1,4 +1,6 @@
-<script>
+<script lang="ts">
+    import type { ParsedDate } from '../types'
+
     let {
         value = $bindable(''),
         parsed = $bindable(null),
@@ -8,15 +10,24 @@
         show = false,
         onsubmit,
         oninput,
+    }: {
+        value: string
+        parsed: ParsedDate | null
+        placeholder?: string
+        disabled?: boolean
+        loading?: boolean
+        show?: boolean
+        onsubmit?: (event: SubmitEvent) => void
+        oninput?: (value: string) => void
     } = $props()
 
-    const handleSubmit = (event) => {
+    const handleSubmit = (event: SubmitEvent) => {
         event.preventDefault()
         onsubmit?.(event)
     }
 
-    const handleInput = (event) => {
-        oninput?.(event.target.value)
+    const handleInput = (event: Event) => {
+        oninput?.((event.target as HTMLInputElement).value)
     }
 
     const match = $derived(parsed?.match)

@@ -1,9 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { parseSmartDate } from '../date-matcher.js'
+import { parseSmartDate } from '../date-matcher'
+import type { DateFormatPreference } from '../types'
+
+interface DateDue {
+    year: number
+    month: number
+    day: number
+    hour?: number
+    minute?: number
+}
+
+interface TestExpected {
+    match: string
+    hasTime: boolean
+    due: DateDue
+}
+
+interface TestCase {
+    name: string
+    input: string
+    expected: TestExpected | null
+    now?: string
+    options?: { dateFormat: DateFormatPreference }
+}
 
 const FIXED_NOW = new Date('2025-12-07T12:00:00Z')
 
-const CASES = [
+const CASES: TestCase[] = [
     {
         name: 'month date only',
         input: 'task dec 12',
@@ -277,8 +300,13 @@ const CASES = [
     },
 ]
 
-function makeLocalDate({ year, month, day, hour = 0, minute = 0 }) {
-    return new Date(year, month - 1, day, hour, minute, 0, 0)
+function formatExpectedDate({ year, month, day, hour, minute }: DateDue): string {
+    const pad = (n: number): string => String(n).padStart(2, '0')
+    const dateStr = `${year}-${pad(month)}-${pad(day)}`
+    if (hour !== undefined) {
+        return `${dateStr}T${pad(hour)}:${pad(minute ?? 0)}:00`
+    }
+    return dateStr
 }
 
 describe('parseSmartDate', () => {
@@ -306,10 +334,7 @@ describe('parseSmartDate', () => {
                 expect(matchedText).toBe(test.expected.match)
             }
 
-            expect(result.date).toBeInstanceOf(Date)
-            expect(result.date?.getTime()).toBe(
-                makeLocalDate(test.expected.due).getTime()
-            )
+            expect(result.date).toBe(formatExpectedDate(test.expected.due))
 
             if ('hasTime' in test.expected) {
                 expect(result.hasTime).toBe(test.expected.hasTime)

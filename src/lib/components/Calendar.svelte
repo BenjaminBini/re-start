@@ -1,4 +1,11 @@
-<script>
+<script lang="ts">
+    interface MonthData {
+        name: string
+        year: number
+        month: number
+        weeks: (number | null)[][]
+    }
+
     const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
     const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
                     'july', 'august', 'september', 'october', 'november', 'december']
@@ -10,14 +17,14 @@
 
     // Update date at midnight
     $effect(() => {
-        const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now
+        const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
         const timeout = setTimeout(() => {
             now = new Date()
         }, msUntilMidnight)
         return () => clearTimeout(timeout)
     })
 
-    function getMonthData(year, month) {
+    function getMonthData(year: number, month: number): MonthData {
         const firstDay = new Date(year, month, 1)
         const lastDay = new Date(year, month + 1, 0)
         const daysInMonth = lastDay.getDate()
@@ -60,7 +67,7 @@
         return getMonthData(nextYear, nextMonth % 12)
     })
 
-    function isToday(monthData, day) {
+    function isToday(monthData: MonthData, day: number | null): boolean {
         return day === today &&
                monthData.month === currentMonth &&
                monthData.year === currentYear
@@ -127,6 +134,11 @@
 <style>
     .panel-wrapper {
         flex: 1;
+    }
+    .panel {
+        padding-bottom: 1.5rem;
+        mask-image: none !important;
+        -weebkit-mask-image: none !important;
     }
     .calendar-panel {
         display: flex;

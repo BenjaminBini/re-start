@@ -1,11 +1,16 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
-    import { createCalendarBackend } from '../backends/index.js'
-    import { settings } from '../settings-store.svelte.js'
-    import { authState, hasMeetScope, signIn, refreshScopes } from '../backends/google-auth.js'
+    import { createCalendarBackend } from '../backends/index'
+    import { settings } from '../settings-store.svelte'
+    import { authState, hasMeetScope, signIn, refreshScopes } from '../backends/google-auth'
     import { RefreshCw, Video, MapPin, Copy, Check, X } from 'lucide-svelte'
+    import type GoogleCalendarBackend from '../backends/google-calendar-backend'
+    import type { CalendarEvent } from '../types'
 
-    function getVideoProvider(url) {
+    type AuthStatus = 'unknown' | 'authenticated' | 'unauthenticated'
+    type VideoProvider = 'meet' | 'teams' | 'zoom' | 'other' | null
+
+    function getVideoProvider(url: string): VideoProvider {
         if (!url) return null
         if (url.includes('meet.google.com') || url.includes('hangouts.google.com')) return 'meet'
         if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'teams'
@@ -13,14 +18,14 @@
         return 'other'
     }
 
-    let api = null
-    let events = $state([])
+    let api: GoogleCalendarBackend | null = null
+    let events = $state<CalendarEvent[]>([])
     let syncing = $state(true)
     let error = $state('')
     let eventCount = $derived(events.length)
     let syncInProgress = false
-    let googleAuthStatus = $state(authState.status)
-    let unsubscribeAuth = null
+    let googleAuthStatus = $state<AuthStatus>(authState.status as AuthStatus)
+    let unsubscribeAuth: (() => void) | null = null
 
     // Meet link popup state
     let showMeetPopup = $state(false)
@@ -30,7 +35,7 @@
     let copied = $state(false)
     let needsReauth = $state(false)
 
-    async function createInstantMeet() {
+    async function createInstantMeet(): Promise<void> {
         // First check if we have the required scope
         await refreshScopes()
         if (!hasMeetScope()) {
@@ -60,11 +65,11 @@
         }
     }
 
-    async function handleReauth() {
+    async function handleReauth(): Promise<void> {
         await signIn()
     }
 
-    async function copyMeetLink() {
+    async function copyMeetLink(): Promise<void> {
         try {
             await navigator.clipboard.writeText(meetLink)
             copied = true
@@ -74,14 +79,14 @@
         }
     }
 
-    function closeMeetPopup() {
+    function closeMeetPopup(): void {
         showMeetPopup = false
         meetLink = ''
         meetError = ''
         needsReauth = false
     }
 
-    function handleVisibilityChange() {
+    function handleVisibilityChange(): void {
         if (document.visibilityState === 'visible' && api) {
             loadEvents()
         }
@@ -93,7 +98,7 @@
         initializeAPI(authStatus)
     })
 
-    async function initializeAPI(authStatus) {
+    async function initializeAPI(authStatus: AuthStatus): Promise<void> {
         if (authStatus === 'unauthenticated') {
             api = null
             events = []
@@ -127,7 +132,7 @@
         }
     }
 
-    async function loadEvents(showSyncing = false) {
+    async function loadEvents(showSyncing = false): Promise<void> {
         if (syncInProgress) return
         syncInProgress = true
         try {
@@ -145,12 +150,12 @@
         }
     }
 
-    function formatEventTime(event) {
+    function formatEventTime(event: CalendarEvent): string {
         if (event.isAllDay) {
             return 'all day'
         }
 
-        const formatTime = (date) => {
+        const formatTime = (date: Date): string => {
             if (settings.timeFormat === '12hr') {
                 return date.toLocaleTimeString('en-US', {
                     hour: 'numeric',
@@ -184,6 +189,14 @@
 </script>
 
 <div class="panel-wrapper">
+    <button
+    class="sync-btn"
+    onclick={() => loadEvents(true)}
+    disabled={syncing}
+    title="sync"
+>
+    <RefreshCw size={14} class={syncing ? 'spinning' : ''} />
+</button>
     <button
         class="widget-label"
         onclick={() => loadEvents(true)}
@@ -280,14 +293,6 @@
                     {/if}
                 </div>
             </div>
-            <button
-                class="sync-btn"
-                onclick={() => loadEvents(true)}
-                disabled={syncing}
-                title="sync"
-            >
-                <RefreshCw size={14} class={syncing ? 'spinning' : ''} />
-            </button>
         {/if}
     </div>
 </div>
@@ -342,7 +347,6 @@
         flex: 1;
     }
     .events {
-        max-height: 15rem;
         overflow: auto;
         scrollbar-width: none;
         scroll-snap-type: y proximity;

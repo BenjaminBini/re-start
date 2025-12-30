@@ -1,11 +1,11 @@
-<script>
-    import { settings } from '../../settings-store.svelte.js'
+<script lang="ts">
+    import { settings } from '../../settings-store.svelte'
     import RadioButton from '../RadioButton.svelte'
 
     let locationLoading = $state(false)
-    let locationError = $state(null)
+    let locationError = $state<string | null>(null)
 
-    async function useCurrentLocation() {
+    async function useCurrentLocation(): Promise<void> {
         if (!navigator.geolocation) {
             locationError = 'geolocation not supported by browser'
             setTimeout(() => (locationError = null), 3000)

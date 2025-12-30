@@ -1,35 +1,35 @@
-<script>
-    import { settings } from '../../settings-store.svelte.js'
+<script lang="ts">
+    import { settings } from '../../settings-store.svelte'
     import RadioButton from '../RadioButton.svelte'
 
-    let draggedIndex = $state(null)
-    let dragOverIndex = $state(null)
+    let draggedIndex = $state<number | null>(null)
+    let dragOverIndex = $state<number | null>(null)
 
-    function addLink() {
+    function addLink(): void {
         settings.links = [...settings.links, { title: '', url: '' }]
     }
 
-    function removeLink(index) {
+    function removeLink(index: number): void {
         settings.links = settings.links.filter((_, i) => i !== index)
     }
 
-    function handleDragStart(event, index) {
+    function handleDragStart(event: DragEvent, index: number): void {
         draggedIndex = index
-        event.dataTransfer.effectAllowed = 'move'
-        event.dataTransfer.setData('text/html', event.currentTarget)
+        event.dataTransfer!.effectAllowed = 'move'
+        event.dataTransfer!.setData('text/html', (event.currentTarget as HTMLElement).outerHTML)
     }
 
-    function handleDragOver(event, index) {
+    function handleDragOver(event: DragEvent, index: number): void {
         event.preventDefault()
-        event.dataTransfer.dropEffect = 'move'
+        event.dataTransfer!.dropEffect = 'move'
         dragOverIndex = index
     }
 
-    function handleDragLeave() {
+    function handleDragLeave(): void {
         dragOverIndex = null
     }
 
-    function handleDrop(event, dropIndex) {
+    function handleDrop(event: DragEvent, dropIndex: number): void {
         event.preventDefault()
 
         if (draggedIndex !== null && draggedIndex !== dropIndex) {
@@ -54,7 +54,7 @@
         dragOverIndex = null
     }
 
-    function handleDragEnd() {
+    function handleDragEnd(): void {
         draggedIndex = null
         dragOverIndex = null
     }
@@ -92,6 +92,13 @@
                 step="1"
             />
         </div>
+    </div>
+
+    <div class="group">
+        <button class="checkbox-label" onclick={() => settings.showFavicons = !settings.showFavicons}>
+            <span class="checkbox">{settings.showFavicons ? '[x]' : '[ ]'}</span>
+            show favicons
+        </button>
     </div>
 
     <div class="group">

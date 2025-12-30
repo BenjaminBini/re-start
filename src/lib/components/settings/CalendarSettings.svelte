@@ -1,11 +1,12 @@
-<script>
-    import { settings } from '../../settings-store.svelte.js'
-    import { createCalendarBackend } from '../../backends/index.js'
+<script lang="ts">
+    import { settings } from '../../settings-store.svelte'
+    import { createCalendarBackend } from '../../backends/index'
+    import type { GoogleCalendar } from '../../types'
 
-    let availableCalendars = $state([])
+    let availableCalendars = $state<GoogleCalendar[]>([])
     let loadingCalendars = $state(false)
 
-    export function fetchCalendars() {
+    export function fetchCalendars(): void {
         if (!settings.googleTasksSignedIn) return
 
         loadingCalendars = true
@@ -23,7 +24,7 @@
             })
     }
 
-    function toggleCalendar(calendarId) {
+    function toggleCalendar(calendarId: string): void {
         if (settings.selectedCalendars.includes(calendarId)) {
             settings.selectedCalendars = settings.selectedCalendars.filter(id => id !== calendarId)
         } else {

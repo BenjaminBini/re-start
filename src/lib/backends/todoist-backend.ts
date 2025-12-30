@@ -1,28 +1,84 @@
-import TaskBackend from './task-backend.js'
+import TaskBackend from './task-backend'
+import type { TaskBackendConfig, EnrichedTask, TaskDue } from '../types'
+
+interface TodoistItem {
+    id: string
+    content: string
+    checked: boolean
+    completed_at: string | null
+    due: TaskDue | null
+    project_id: string | null
+    labels: string[]
+    child_order: number
+    is_deleted?: boolean
+}
+
+interface TodoistLabel {
+    id: string
+    name: string
+}
+
+interface TodoistProject {
+    id: string
+    name: string
+}
+
+interface TodoistData {
+    items: TodoistItem[]
+    labels: TodoistLabel[]
+    projects: TodoistProject[]
+    timestamp?: number
+}
+
+interface TodoistSyncResponse {
+    sync_token: string
+    full_sync?: boolean
+    items?: TodoistItem[]
+    labels?: TodoistLabel[]
+    projects?: TodoistProject[]
+}
+
+interface TodoistCommand {
+    type: string
+    uuid: string
+    temp_id?: string
+    args: Record<string, unknown>
+}
 
 /**
  * Todoist API client using the Sync endpoint for efficient data retrieval
  */
 class TodoistBackend extends TaskBackend {
-    constructor(config) {
+    private token: string
+    private baseUrl: string
+    private syncTokenKey: string
+    private dataKey: string
+    private syncToken: string
+    protected override data: TodoistData
+    protected override cacheExpiry: number
+
+    constructor(config: TaskBackendConfig) {
         super(config)
-        this.token = config.token
+        this.token = config.apiToken || ''
         this.baseUrl = 'https://api.todoist.com/api/v1'
         this.syncTokenKey = 'todoist_sync_token'
         this.dataKey = 'todoist_data'
         this.cacheExpiry = 5 * 60 * 1000 // 5 minutes
 
         this.syncToken = localStorage.getItem(this.syncTokenKey) || '*'
-        this.data = JSON.parse(localStorage.getItem(this.dataKey) || '{}')
+        this.data = JSON.parse(localStorage.getItem(this.dataKey) || '{}') as TodoistData
+        if (!this.data.items) this.data.items = []
+        if (!this.data.labels) this.data.labels = []
+        if (!this.data.projects) this.data.projects = []
     }
 
     /**
      * Perform a sync request to get tasks and related data
      */
     async sync(
-        resourceTypes = ['items', 'labels', 'projects'],
+        resourceTypes: string[] = ['items', 'labels', 'projects'],
         isRetry = false
-    ) {
+    ): Promise<TodoistSyncResponse> {
         const formData = new FormData()
         formData.append('sync_token', this.syncToken)
         formData.append('resource_types', JSON.stringify(resourceTypes))
@@ -40,7 +96,7 @@ class TodoistBackend extends TaskBackend {
                 throw new Error(`todoist fetch failed: ${response.status}`)
             }
 
-            const data = await response.json()
+            const data = await response.json() as TodoistSyncResponse
 
             this.updateLocalData(data)
 
@@ -61,7 +117,7 @@ class TodoistBackend extends TaskBackend {
     /**
      * Update local data storage with sync response
      */
-    updateLocalData(syncData) {
+    private updateLocalData(syncData: TodoistSyncResponse): void {
         if (syncData.full_sync) {
             this.data = {
                 items: syncData.items || [],
@@ -82,13 +138,16 @@ class TodoistBackend extends TaskBackend {
     /**
      * Generic merge function for all data types
      */
-    mergeData(type, newData) {
+    private mergeData(type: 'items' | 'labels' | 'projects', newData?: Array<TodoistItem | TodoistLabel | TodoistProject>): void {
         if (!newData) return
-        if (!this.data[type]) this.data[type] = []
+        if (!this.data[type]) {
+            (this.data[type] as unknown[]) = []
+        }
 
         newData.forEach((newItem) => {
-            if (newItem.is_deleted) {
-                this.data[type] = this.data[type].filter(
+            const isDeleted = 'is_deleted' in newItem && newItem.is_deleted
+            if (isDeleted) {
+                (this.data[type] as Array<{ id: string }>) = this.data[type].filter(
                     (item) => item.id !== newItem.id
                 )
             } else {
@@ -96,9 +155,9 @@ class TodoistBackend extends TaskBackend {
                     (item) => item.id === newItem.id
                 )
                 if (existingIndex >= 0) {
-                    this.data[type][existingIndex] = newItem
+                    (this.data[type][existingIndex] as unknown) = newItem
                 } else {
-                    this.data[type].push(newItem)
+                    (this.data[type] as unknown[]).push(newItem)
                 }
             }
         })
@@ -107,7 +166,7 @@ class TodoistBackend extends TaskBackend {
     /**
      * Get upcoming tasks and recently completed tasks
      */
-    getTasks() {
+    getTasks(): EnrichedTask[] {
         if (!this.data.items) return []
 
         const recentThreshold = new Date(new Date().getTime() - 5 * 60 * 1000) // 5 minutes ago
@@ -127,8 +186,8 @@ class TodoistBackend extends TaskBackend {
 
                 return false
             })
-            .map((item) => {
-                let dueDate = null
+            .map((item): EnrichedTask => {
+                let dueDate: Date | null = null
                 let hasTime = false
 
                 if (item.due) {
@@ -143,7 +202,7 @@ class TodoistBackend extends TaskBackend {
 
                 return {
                     ...item,
-                    project_name: this.getProjectName(item.project_id),
+                    project_name: this.getProjectName(item.project_id || ''),
                     label_names: this.getLabelNames(item.labels),
                     due_date: dueDate,
                     has_time: hasTime,
@@ -156,25 +215,25 @@ class TodoistBackend extends TaskBackend {
     /**
      * Get project name by ID
      */
-    getProjectName(projectId) {
+    override getProjectName(projectId: string): string {
         return this.data.projects?.find((p) => p.id === projectId)?.name || ''
     }
 
     /**
      * Get label names by label IDs
      */
-    getLabelNames(labelIds) {
+    override getLabelNames(labelIds: string[]): string[] {
         if (!labelIds || !this.data.labels) return []
         return labelIds
             .map((id) => this.data.labels.find((l) => l.id === id)?.name)
-            .filter(Boolean)
+            .filter((name): name is string => Boolean(name))
     }
 
     /**
      * Complete a task
      */
-    async completeTask(taskId) {
-        const commands = [
+    async completeTask(taskId: string): Promise<void> {
+        const commands: TodoistCommand[] = [
             {
                 type: 'item_close',
                 uuid: crypto.randomUUID(),
@@ -184,14 +243,14 @@ class TodoistBackend extends TaskBackend {
             },
         ]
 
-        return this.executeCommands(commands)
+        await this.executeCommands(commands)
     }
 
     /**
      * Uncomplete a task (undo completion)
      */
-    async uncompleteTask(taskId) {
-        const commands = [
+    async uncompleteTask(taskId: string): Promise<void> {
+        const commands: TodoistCommand[] = [
             {
                 type: 'item_uncomplete',
                 uuid: crypto.randomUUID(),
@@ -201,14 +260,14 @@ class TodoistBackend extends TaskBackend {
             },
         ]
 
-        return this.executeCommands(commands)
+        await this.executeCommands(commands)
     }
 
     /**
      * Delete a task
      */
-    async deleteTask(taskId) {
-        const commands = [
+    async deleteTask(taskId: string): Promise<void> {
+        const commands: TodoistCommand[] = [
             {
                 type: 'item_delete',
                 uuid: crypto.randomUUID(),
@@ -218,39 +277,35 @@ class TodoistBackend extends TaskBackend {
             },
         ]
 
-        return this.executeCommands(commands)
+        await this.executeCommands(commands)
     }
 
     /**
      * Add a new task
      */
-    async addTask(content, due) {
+    async addTask(content: string, due: string | null): Promise<void> {
         const tempId = crypto.randomUUID()
-        const commands = [
+        const args: Record<string, unknown> = { content }
+        if (due) {
+            args.due = { date: due }
+        }
+
+        const commands: TodoistCommand[] = [
             {
                 type: 'item_add',
                 temp_id: tempId,
                 uuid: crypto.randomUUID(),
-                args: {
-                    content: content,
-                    ...(due
-                        ? {
-                              due: {
-                                  date: due,
-                              },
-                          }
-                        : {}),
-                },
+                args,
             },
         ]
 
-        return this.executeCommands(commands)
+        await this.executeCommands(commands)
     }
 
     /**
      * Execute sync commands
      */
-    async executeCommands(commands) {
+    private async executeCommands(commands: TodoistCommand[]): Promise<unknown> {
         const formData = new FormData()
         formData.append('commands', JSON.stringify(commands))
 
@@ -272,11 +327,11 @@ class TodoistBackend extends TaskBackend {
     /**
      * Clear local storage when the API token changes
      */
-    clearLocalData() {
+    clearLocalData(): void {
         localStorage.removeItem(this.syncTokenKey)
         localStorage.removeItem(this.dataKey)
         this.syncToken = '*'
-        this.data = {}
+        this.data = { items: [], labels: [], projects: [] }
     }
 }
 

@@ -2,35 +2,60 @@
 // Topics: abstract, nature, city scenery
 // Images update daily with lazy refresh
 
+import type { UnsplashBackground, UnsplashPhotographer } from './types'
+
 const API_URL = 'https://api.unsplash.com/photos/random'
 const STORAGE_KEY = 'unsplash_background'
 
 // Topics to randomly select from for variety
 const TOPICS = ['abstract', 'nature', 'city', 'architecture', 'landscape']
 
+interface UnsplashApiResponse {
+    id: string
+    urls: {
+        regular: string
+        full: string
+        small: string
+    }
+    blur_hash: string
+    color: string
+    description: string | null
+    alt_description: string | null
+    user: {
+        name: string
+        username: string
+        links: {
+            html: string
+        }
+    }
+    links: {
+        html: string
+        download_location: string
+    }
+}
+
 /**
  * Get today's date as YYYY-MM-DD string
  */
-function getTodayDate() {
+function getTodayDate(): string {
     return new Date().toISOString().split('T')[0]
 }
 
 /**
  * Get a random topic from the list
  */
-function getRandomTopic() {
+function getRandomTopic(): string {
     return TOPICS[Math.floor(Math.random() * TOPICS.length)]
 }
 
 /**
  * Load cached background data from localStorage
- * @returns {Object|null} Cached background data or null
  */
-export function loadCachedBackground() {
+export function loadCachedBackground(): UnsplashBackground | null {
     try {
         const cached = localStorage.getItem(STORAGE_KEY)
         if (cached) {
-            return JSON.parse(cached)
+            return JSON.parse(cached) as UnsplashBackground
         }
     } catch (e) {
         console.error('Failed to load cached background:', e)
@@ -40,9 +65,8 @@ export function loadCachedBackground() {
 
 /**
  * Save background data to localStorage
- * @param {Object} data Background data to cache
  */
-function saveBackground(data) {
+function saveBackground(data: UnsplashBackground): void {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch (e) {
@@ -53,17 +77,14 @@ function saveBackground(data) {
 /**
  * Clear cached background data
  */
-export function clearBackgroundCache() {
+export function clearBackgroundCache(): void {
     localStorage.removeItem(STORAGE_KEY)
 }
 
 /**
  * Fetch a random background image from Unsplash
- * @param {string} apiKey Unsplash API key
- * @param {string} [topic] Optional topic override
- * @returns {Promise<Object>} Background data object
  */
-async function fetchFromUnsplash(apiKey, topic) {
+async function fetchFromUnsplash(apiKey: string, topic?: string): Promise<UnsplashBackground> {
     if (!apiKey) {
         throw new Error('Unsplash API key is required')
     }
@@ -86,7 +107,13 @@ async function fetchFromUnsplash(apiKey, topic) {
         throw new Error(`Unsplash API error: ${response.status}`)
     }
 
-    const photo = await response.json()
+    const photo = await response.json() as UnsplashApiResponse
+
+    const photographer: UnsplashPhotographer = {
+        name: photo.user.name,
+        username: photo.user.username,
+        profileUrl: photo.user.links.html,
+    }
 
     return {
         id: photo.id,
@@ -96,11 +123,7 @@ async function fetchFromUnsplash(apiKey, topic) {
         blurHash: photo.blur_hash,
         color: photo.color, // Dominant color for placeholder
         description: photo.description || photo.alt_description,
-        photographer: {
-            name: photo.user.name,
-            username: photo.user.username,
-            profileUrl: photo.user.links.html,
-        },
+        photographer,
         unsplashUrl: photo.links.html,
         downloadLocation: photo.links.download_location, // For triggering download count
         fetchDate: getTodayDate(),
@@ -110,10 +133,8 @@ async function fetchFromUnsplash(apiKey, topic) {
 
 /**
  * Trigger download tracking on Unsplash (required by API guidelines)
- * @param {string} apiKey Unsplash API key
- * @param {string} downloadLocation The download_location URL
  */
-async function triggerDownloadTracking(apiKey, downloadLocation) {
+async function triggerDownloadTracking(apiKey: string, downloadLocation: string): Promise<void> {
     if (!downloadLocation || !apiKey) return
 
     try {
@@ -131,10 +152,8 @@ async function triggerDownloadTracking(apiKey, downloadLocation) {
 /**
  * Get background image, fetching new one if needed (lazy update)
  * Returns cached version if still valid for today
- * @param {string} apiKey Unsplash API key
- * @returns {Promise<Object>} Background data object
  */
-export async function getBackground(apiKey) {
+export async function getBackground(apiKey: string): Promise<UnsplashBackground> {
     const cached = loadCachedBackground()
 
     // Return cached if valid for today
@@ -173,11 +192,8 @@ export async function getBackground(apiKey) {
 
 /**
  * Force refresh the background image (user requested)
- * @param {string} apiKey Unsplash API key
- * @param {string} [topic] Optional specific topic
- * @returns {Promise<Object>} New background data object
  */
-export async function forceRefreshBackground(apiKey, topic) {
+export async function forceRefreshBackground(apiKey: string, topic?: string): Promise<UnsplashBackground> {
     const background = await fetchFromUnsplash(apiKey, topic)
     saveBackground(background)
 

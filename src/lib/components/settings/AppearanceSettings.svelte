@@ -1,13 +1,17 @@
-<script>
-    import { settings } from '../../settings-store.svelte.js'
-    import { themeNames, themes } from '../../themes.js'
+<script lang="ts">
+    import { settings } from '../../settings-store.svelte'
+    import { themeNames, themes } from '../../themes'
     import RadioButton from '../RadioButton.svelte'
+    import type { UnsplashBackground } from '../../types'
 
-    let { refreshBackground = null, background = null } = $props()
+    let { refreshBackground = null, background = null }: {
+        refreshBackground: (() => Promise<void>) | null
+        background: UnsplashBackground | null
+    } = $props()
 
     let refreshingBackground = $state(false)
 
-    async function handleRefreshBackground() {
+    async function handleRefreshBackground(): Promise<void> {
         if (!refreshBackground) return
         try {
             refreshingBackground = true

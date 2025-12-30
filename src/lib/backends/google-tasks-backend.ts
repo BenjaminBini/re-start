@@ -1,12 +1,53 @@
-import TaskBackend from './task-backend.js'
-import * as googleAuth from './google-auth.js'
+import TaskBackend from './task-backend'
+import * as googleAuth from './google-auth'
+import type { TaskBackendConfig, EnrichedTask } from '../types'
+
+interface GoogleTask {
+    id: string
+    title: string
+    notes?: string
+    status: 'needsAction' | 'completed'
+    completed?: string
+    due?: string
+    position?: string
+    parent?: string
+    deleted?: boolean
+    tasklistId?: string
+    tasklistName?: string
+}
+
+interface GoogleTasklist {
+    id: string
+    title: string
+}
+
+interface GoogleTasksData {
+    tasklists: GoogleTasklist[]
+    tasks: GoogleTask[]
+    timestamp?: number
+}
+
+interface GoogleTasksListResponse {
+    items?: GoogleTask[]
+}
+
+interface GoogleTasklistsResponse {
+    items?: GoogleTasklist[]
+}
 
 /**
  * Google Tasks API client for Web Applications
  * Uses shared Google OAuth module for authentication
  */
 class GoogleTasksBackend extends TaskBackend {
-    constructor(config = {}) {
+    private baseUrl: string
+    private dataKey: string
+    private tasklistIdKey: string
+    protected override data: GoogleTasksData
+    protected override cacheExpiry: number
+    private defaultTasklistId: string
+
+    constructor(config: TaskBackendConfig = {}) {
         super(config)
         this.baseUrl = 'https://tasks.googleapis.com/tasks/v1'
 
@@ -17,50 +58,51 @@ class GoogleTasksBackend extends TaskBackend {
         // Migrate old storage keys if needed
         googleAuth.migrateStorageKeys()
 
-        this.data = JSON.parse(localStorage.getItem(this.dataKey) ?? '{}')
+        const storedData = localStorage.getItem(this.dataKey)
+        this.data = storedData ? JSON.parse(storedData) as GoogleTasksData : { tasklists: [], tasks: [] }
         this.defaultTasklistId = localStorage.getItem(this.tasklistIdKey) ?? '@default'
     }
 
     /**
      * Sign in using Google OAuth
      */
-    async signIn() {
+    async signIn(): Promise<void> {
         return googleAuth.signIn()
     }
 
     /**
      * Get user email
      */
-    getUserEmail() {
+    getUserEmail(): string | null {
         return googleAuth.getUserEmail()
     }
 
     /**
      * Sign out
      */
-    async signOut() {
-        googleAuth.signOut()
+    async signOut(): Promise<void> {
+        await googleAuth.signOut()
         this.clearLocalData()
     }
 
     /**
      * Check if signed in
      */
-    getIsSignedIn() {
+    getIsSignedIn(): boolean {
         return googleAuth.isSignedIn()
     }
 
     /**
      * Ensure we have a valid token, refreshing if needed
      */
-    async ensureValidToken() {
+    async ensureValidToken(): Promise<string> {
         return googleAuth.ensureValidToken()
     }
 
     /**
      * Make an authenticated API request with auto-refresh
      */
-    async apiRequest(endpoint, options = {}) {
+    private async apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const accessToken = await googleAuth.ensureValidToken()
 
         const url = `${this.baseUrl}${endpoint}`
@@ -82,20 +124,20 @@ class GoogleTasksBackend extends TaskBackend {
             )
         }
 
-        return response.json()
+        return response.json() as Promise<T>
     }
 
     /**
      * Sync tasks from Google Tasks API
      */
-    async sync(resourceTypes = ['tasklists', 'tasks']) {
+    async sync(resourceTypes: string[] = ['tasklists', 'tasks']): Promise<GoogleTasksData> {
         if (!this.getIsSignedIn()) {
             throw new Error('Not signed in to Google account')
         }
 
         try {
             if (resourceTypes.includes('tasklists')) {
-                const data = await this.apiRequest('/users/@me/lists?maxResults=20')
+                const data = await this.apiRequest<GoogleTasklistsResponse>('/users/@me/lists?maxResults=20')
                 this.data.tasklists = data.items || []
 
                 const hasValidTasklist = this.data.tasklists.some(
@@ -114,7 +156,7 @@ class GoogleTasksBackend extends TaskBackend {
                     this.data.tasks = []
                 } else {
                     const taskPromises = tasklists.map(async (tasklist) => {
-                        const data = await this.apiRequest(
+                        const data = await this.apiRequest<GoogleTasksListResponse>(
                             `/lists/${tasklist.id}/tasks?showCompleted=true&showHidden=true&maxResults=100`
                         )
                         return (data.items || []).map((task) => ({
@@ -142,7 +184,7 @@ class GoogleTasksBackend extends TaskBackend {
     /**
      * Get upcoming tasks and recently completed tasks
      */
-    getTasks() {
+    getTasks(): EnrichedTask[] {
         if (!this.data.tasks) return []
 
         const recentThreshold = new Date(new Date().getTime() - 5 * 60 * 1000)
@@ -156,8 +198,8 @@ class GoogleTasksBackend extends TaskBackend {
                 }
                 return false
             })
-            .map((task) => {
-                let dueDate = null
+            .map((task): EnrichedTask => {
+                let dueDate: Date | null = null
 
                 if (task.due) {
                     const dateOnly = task.due.split('T')[0]
@@ -167,7 +209,6 @@ class GoogleTasksBackend extends TaskBackend {
                 return {
                     id: task.id,
                     content: task.title,
-                    notes: task.notes || '',
                     checked: task.status === 'completed',
                     completed_at: task.completed || null,
                     due: task.due ? { date: task.due } : null,
@@ -178,7 +219,6 @@ class GoogleTasksBackend extends TaskBackend {
                     labels: [],
                     label_names: [],
                     child_order: task.position ? parseInt(task.position) : 0,
-                    parent_id: task.parent || null,
                     is_deleted: task.deleted || false,
                 }
             })
@@ -189,39 +229,37 @@ class GoogleTasksBackend extends TaskBackend {
     /**
      * Get tasklist name by ID
      */
-    getTasklistName(tasklistId) {
+    getTasklistName(tasklistId: string): string {
         return this.data.tasklists?.find((tl) => tl.id === tasklistId)?.title ?? ''
     }
 
     /**
      * Add a new task
      */
-    async addTask(content, due) {
-        const taskData = { title: content }
+    async addTask(content: string, due: string | null): Promise<void> {
+        const taskData: { title: string; due?: string } = { title: content }
         if (due) {
             const dateOnly = due.split('T')[0]
             taskData.due = dateOnly + 'T00:00:00.000Z'
         }
 
-        const result = await this.apiRequest(
+        await this.apiRequest<GoogleTask>(
             `/lists/${this.defaultTasklistId}/tasks`,
             {
                 method: 'POST',
                 body: JSON.stringify(taskData),
             }
         )
-
-        return result
     }
 
     /**
      * Complete a task
      */
-    async completeTask(taskId) {
+    async completeTask(taskId: string): Promise<void> {
         const task = this.data.tasks?.find((t) => t.id === taskId)
         const tasklistId = task?.tasklistId ?? this.defaultTasklistId
 
-        const result = await this.apiRequest(
+        await this.apiRequest<GoogleTask>(
             `/lists/${tasklistId}/tasks/${taskId}`,
             {
                 method: 'PATCH',
@@ -231,18 +269,16 @@ class GoogleTasksBackend extends TaskBackend {
                 }),
             }
         )
-
-        return result
     }
 
     /**
      * Uncomplete a task
      */
-    async uncompleteTask(taskId) {
+    async uncompleteTask(taskId: string): Promise<void> {
         const task = this.data.tasks?.find((t) => t.id === taskId)
         const tasklistId = task?.tasklistId ?? this.defaultTasklistId
 
-        const result = await this.apiRequest(
+        await this.apiRequest<GoogleTask>(
             `/lists/${tasklistId}/tasks/${taskId}`,
             {
                 method: 'PATCH',
@@ -252,18 +288,16 @@ class GoogleTasksBackend extends TaskBackend {
                 }),
             }
         )
-
-        return result
     }
 
     /**
      * Delete a task
      */
-    async deleteTask(taskId) {
+    async deleteTask(taskId: string): Promise<void> {
         const task = this.data.tasks?.find((t) => t.id === taskId)
         const tasklistId = task?.tasklistId ?? this.defaultTasklistId
 
-        await this.apiRequest(`/lists/${tasklistId}/tasks/${taskId}`, {
+        await this.apiRequest<void>(`/lists/${tasklistId}/tasks/${taskId}`, {
             method: 'DELETE',
         })
     }
@@ -271,10 +305,10 @@ class GoogleTasksBackend extends TaskBackend {
     /**
      * Clear local storage
      */
-    clearLocalData() {
+    clearLocalData(): void {
         localStorage.removeItem(this.dataKey)
         localStorage.removeItem(this.tasklistIdKey)
-        this.data = {}
+        this.data = { tasklists: [], tasks: [] }
         this.defaultTasklistId = '@default'
     }
 }

@@ -1,5 +1,12 @@
-<script>
-    let { group = $bindable(), value, disabled = false, children } = $props()
+<script lang="ts">
+    import type { Snippet } from 'svelte'
+
+    let { group = $bindable(), value, disabled = false, children }: {
+        group: string
+        value: string
+        disabled?: boolean
+        children?: Snippet
+    } = $props()
 
     let isChecked = $derived(group === value)
 </script>

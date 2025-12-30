@@ -1,10 +1,34 @@
 import descriptions from '../assets/descriptions.json'
+import type {
+    TimeFormat,
+    TempUnit,
+    SpeedUnit,
+    WeatherApiResponse,
+    WeatherCacheData,
+    WeatherData,
+    ProcessedCurrentWeather,
+    ForecastItem,
+    CurrentWeatherRaw,
+    HourlyWeatherRaw,
+} from './types'
+
+interface WeatherDescription {
+    day?: { description?: string }
+    night?: { description?: string }
+}
+
+const weatherDescriptions = descriptions as Record<string, WeatherDescription>
 
 /**
  * OpenMeteo Weather API client with caching
  * Follows same pattern as task/calendar backends
  */
 class WeatherAPI {
+    private baseUrl: string
+    private dataKey: string
+    private cacheExpiry: number
+    private data: WeatherCacheData
+
     constructor() {
         this.baseUrl = 'https://api.open-meteo.com/v1/forecast'
         this.dataKey = 'weather_data'
@@ -16,10 +40,10 @@ class WeatherAPI {
     /**
      * Load cached data from localStorage
      */
-    _loadFromStorage() {
+    private _loadFromStorage(): WeatherCacheData {
         try {
             const stored = localStorage.getItem(this.dataKey)
-            return stored ? JSON.parse(stored) : {}
+            return stored ? (JSON.parse(stored) as WeatherCacheData) : {}
         } catch (error) {
             console.error('Failed to load weather cache:', error)
             return {}
@@ -29,14 +53,14 @@ class WeatherAPI {
     /**
      * Save data to localStorage
      */
-    _saveToStorage() {
+    private _saveToStorage(): void {
         localStorage.setItem(this.dataKey, JSON.stringify(this.data))
     }
 
     /**
      * Check if cache is stale (older than expiry time)
      */
-    isCacheStale(latitude = null, longitude = null) {
+    isCacheStale(latitude: number | null = null, longitude: number | null = null): boolean {
         if (!this.data.timestamp) return true
 
         // Check if coordinates changed
@@ -57,7 +81,7 @@ class WeatherAPI {
     /**
      * Invalidate cache (force next sync to fetch fresh data)
      */
-    invalidateCache() {
+    invalidateCache(): void {
         this.data.timestamp = 0
         this._saveToStorage()
     }
@@ -65,7 +89,7 @@ class WeatherAPI {
     /**
      * Clear all cached data
      */
-    clearLocalData() {
+    clearLocalData(): void {
         localStorage.removeItem(this.dataKey)
         this.data = {}
     }
@@ -73,7 +97,7 @@ class WeatherAPI {
     /**
      * Get cached weather data (processed for display)
      */
-    getWeather(timeFormat = '12hr') {
+    getWeather(timeFormat: TimeFormat = '12hr'): WeatherData | null {
         if (!this.data.raw) return null
 
         return {
@@ -89,7 +113,7 @@ class WeatherAPI {
     /**
      * Sync weather data from API
      */
-    async sync(latitude, longitude, tempUnit, speedUnit) {
+    async sync(latitude: number, longitude: number, tempUnit: TempUnit, speedUnit: SpeedUnit): Promise<WeatherCacheData> {
         const rawData = await this._fetchWeatherData(
             latitude,
             longitude,
@@ -111,7 +135,12 @@ class WeatherAPI {
     /**
      * Check if coordinates have changed significantly (more than ~0.1 degrees)
      */
-    _coordinatesChanged(oldLat, oldLon, newLat, newLon) {
+    private _coordinatesChanged(
+        oldLat: number | undefined,
+        oldLon: number | undefined,
+        newLat: number,
+        newLon: number
+    ): boolean {
         if (oldLat == null || oldLon == null) return true
         const threshold = 0.1
         return (
@@ -123,7 +152,12 @@ class WeatherAPI {
     /**
      * Fetch raw weather data from API
      */
-    async _fetchWeatherData(latitude, longitude, tempUnit, speedUnit) {
+    private async _fetchWeatherData(
+        latitude: number,
+        longitude: number,
+        tempUnit: TempUnit,
+        speedUnit: SpeedUnit
+    ): Promise<WeatherApiResponse> {
         const params = new URLSearchParams({
             latitude: latitude.toString(),
             longitude: longitude.toString(),
@@ -140,13 +174,13 @@ class WeatherAPI {
         if (!response.ok) {
             throw new Error(`HTTP ${response.status} ${response.statusText}`)
         }
-        return response.json()
+        return response.json() as Promise<WeatherApiResponse>
     }
 
     /**
      * Process current weather data with descriptions
      */
-    _processCurrentWeather(currentData) {
+    private _processCurrentWeather(currentData: CurrentWeatherRaw): ProcessedCurrentWeather {
         return {
             ...currentData,
             temperature_2m: currentData.temperature_2m.toFixed(0),
@@ -162,8 +196,12 @@ class WeatherAPI {
     /**
      * Process hourly forecast to get every 3rd hour starting 3 hours from current hour
      */
-    _processHourlyForecast(hourlyData, currentTime, timeFormat = '12hr') {
-        const forecasts = []
+    private _processHourlyForecast(
+        hourlyData: HourlyWeatherRaw,
+        currentTime: string,
+        timeFormat: TimeFormat = '12hr'
+    ): ForecastItem[] {
+        const forecasts: ForecastItem[] = []
 
         // Find the current or next hour in the forecast
         let currentIndex = 0
@@ -183,19 +221,20 @@ class WeatherAPI {
             i++
         ) {
             const index = currentIndex + (i + 1) * 3
-            forecasts.push({
-                time: hourlyData.time[index],
-                temperature: hourlyData.temperature_2m[index].toFixed(0),
-                weatherCode: hourlyData.weather_code[index],
-                description: this._getWeatherDescription(
-                    hourlyData.weather_code[index],
-                    hourlyData.is_day[index] === 1
-                ),
-                formattedTime: this._formatTime(
-                    hourlyData.time[index],
-                    timeFormat
-                ),
-            })
+            const time = hourlyData.time[index]
+            const temp = hourlyData.temperature_2m[index]
+            const code = hourlyData.weather_code[index]
+            const isDay = hourlyData.is_day[index]
+
+            if (time !== undefined && temp !== undefined && code !== undefined && isDay !== undefined) {
+                forecasts.push({
+                    time,
+                    temperature: temp.toFixed(0),
+                    weatherCode: code,
+                    description: this._getWeatherDescription(code, isDay === 1),
+                    formattedTime: this._formatTime(time, timeFormat),
+                })
+            }
         }
 
         return forecasts
@@ -204,19 +243,18 @@ class WeatherAPI {
     /**
      * Get weather description from code
      */
-    _getWeatherDescription(weatherCode, isDay = true) {
+    private _getWeatherDescription(weatherCode: number, isDay = true): string {
         const timeOfDay = isDay ? 'day' : 'night'
+        const codeStr = String(weatherCode)
         return (
-            descriptions[weatherCode]?.[
-                timeOfDay
-            ]?.description?.toLowerCase() || 'unknown'
+            weatherDescriptions[codeStr]?.[timeOfDay]?.description?.toLowerCase() || 'unknown'
         )
     }
 
     /**
      * Format time to display (e.g., "12pm" for 12hr, "12:00" for 24hr)
      */
-    _formatTime(timeString, timeFormat = '12hr') {
+    private _formatTime(timeString: string, timeFormat: TimeFormat = '12hr'): string {
         const date = new Date(timeString)
 
         if (timeFormat === '12hr') {

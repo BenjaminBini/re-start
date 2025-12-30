@@ -1,15 +1,15 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
 
     let loadTime = $state(0)
-    let latency = $state(null)
+    let latency = $state<number | null>(null)
     let viewportWidth = $state(0)
     let viewportHeight = $state(0)
     let fps = $state(0)
 
     let frameCount = 0
     let lastTime = 0
-    let fpsAnimationId = null
+    let fpsAnimationId: number | null = null
 
     function updateFPS() {
         frameCount++

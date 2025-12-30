@@ -1,22 +1,23 @@
-<script>
-    import { settings, saveSettings } from '../../settings-store.svelte.js'
-    import { createTaskBackend } from '../../backends/index.js'
+<script lang="ts">
+    import { settings, saveSettings } from '../../settings-store.svelte'
+    import { createTaskBackend } from '../../backends/index'
+    import type GoogleTasksBackend from '../../backends/google-tasks-backend'
 
-    let googleTasksApi = $state(null)
+    let googleTasksApi = $state<GoogleTasksBackend | null>(null)
     let signingIn = $state(false)
     let signInError = $state('')
     let googleUserEmail = $state(localStorage.getItem('google_user_email') || '')
 
     // Todoist verification state
     let verifyingTodoist = $state(false)
-    let todoistVerified = $state(loadVerification('todoist', settings.todoistApiToken))
+    let todoistVerified = $state<boolean | null>(loadVerification('todoist', settings.todoistApiToken))
 
     // Unsplash verification state
     let verifyingUnsplash = $state(false)
-    let unsplashVerified = $state(loadVerification('unsplash', settings.unsplashApiKey))
+    let unsplashVerified = $state<boolean | null>(loadVerification('unsplash', settings.unsplashApiKey))
 
     // Load/save verification status from localStorage
-    function loadVerification(key, token) {
+    function loadVerification(key: string, token: string): boolean | null {
         if (!token) return null
         try {
             const stored = localStorage.getItem(`verify_${key}`)
@@ -28,13 +29,13 @@
         return null
     }
 
-    function saveVerification(key, token, valid) {
+    function saveVerification(key: string, token: string, valid: boolean): void {
         try {
             localStorage.setItem(`verify_${key}`, JSON.stringify({ token, valid }))
         } catch (e) {}
     }
 
-    async function handleGoogleSignIn() {
+    async function handleGoogleSignIn(): Promise<void> {
         try {
             signingIn = true
             signInError = ''
@@ -56,7 +57,7 @@
         }
     }
 
-    async function handleGoogleSignOut() {
+    async function handleGoogleSignOut(): Promise<void> {
         try {
             if (!googleTasksApi) {
                 googleTasksApi = createTaskBackend('google-tasks')
@@ -72,7 +73,7 @@
         }
     }
 
-    async function verifyTodoistKey() {
+    async function verifyTodoistKey(): Promise<void> {
         if (!settings.todoistApiToken) {
             todoistVerified = false
             return
@@ -102,7 +103,7 @@
         }
     }
 
-    async function verifyUnsplashKey() {
+    async function verifyUnsplashKey(): Promise<void> {
         if (!settings.unsplashApiKey) {
             unsplashVerified = false
             return

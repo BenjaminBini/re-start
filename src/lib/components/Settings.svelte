@@ -1,11 +1,13 @@
-<script>
+<script lang="ts">
     import { fade, fly } from 'svelte/transition'
     import {
         saveSettings,
         settings,
         resetSettings,
-    } from '../settings-store.svelte.js'
+    } from '../settings-store.svelte'
     import { Paintbrush, Plug, Clock, Sun, SquareCheck, Calendar, Link } from 'lucide-svelte'
+    import type { Component } from 'svelte'
+    import type { UnsplashBackground } from '../types'
 
     // Import tab components
     import AppearanceSettings from './settings/AppearanceSettings.svelte'
@@ -16,9 +18,20 @@
     import CalendarSettings from './settings/CalendarSettings.svelte'
     import LinksSettings from './settings/LinksSettings.svelte'
 
-    let { showSettings = false, closeSettings, refreshBackground = null, background = null } = $props()
+    interface Tab {
+        id: string
+        icon: Component
+        title: string
+    }
 
-    const tabs = [
+    let { showSettings = false, closeSettings, refreshBackground = null, background = null }: {
+        showSettings: boolean
+        closeSettings: () => void
+        refreshBackground: (() => Promise<void>) | null
+        background: UnsplashBackground | null
+    } = $props()
+
+    const tabs: Tab[] = [
         { id: 'appearance', icon: Paintbrush, title: 'Appearance' },
         { id: 'integrations', icon: Plug, title: 'Integrations' },
         { id: 'clock', icon: Clock, title: 'Clock' },
@@ -28,11 +41,11 @@
         { id: 'links', icon: Link, title: 'Links' }
     ]
     let activeTab = $state('appearance')
-    let tabElements = $state({})
+    let tabElements = $state<Record<string, HTMLButtonElement>>({})
     let indicatorStyle = $state('')
 
     // Calendar settings reference for fetching calendars
-    let calendarSettingsRef = $state(null)
+    let calendarSettingsRef = $state<{ fetchCalendars: () => Promise<void> } | null>(null)
 
     $effect(() => {
         const el = tabElements[activeTab]
@@ -51,18 +64,18 @@
     // @ts-ignore
     const version = __APP_VERSION__
 
-    function handleClose() {
+    function handleClose(): void {
         saveSettings(settings)
         closeSettings()
     }
 
-    function handleKeydown(event) {
+    function handleKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             handleClose()
         }
     }
 
-    function handleReset() {
+    function handleReset(): void {
         if (
             confirm('are you sure you want to reset all settings to default?')
         ) {

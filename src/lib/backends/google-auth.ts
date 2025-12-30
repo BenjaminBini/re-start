@@ -22,29 +22,39 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000
 // Logging prefix for easy filtering
 const LOG_PREFIX = '[GoogleAuth]'
 
-function log(...args) {
+function log(...args: unknown[]): void {
     console.log(LOG_PREFIX, ...args)
 }
 
-function logWarn(...args) {
+function logWarn(...args: unknown[]): void {
     console.warn(LOG_PREFIX, ...args)
 }
 
-function logError(...args) {
+function logError(...args: unknown[]): void {
     console.error(LOG_PREFIX, ...args)
 }
+
+// Auth state types
+type AuthStatus = 'unknown' | 'authenticated' | 'unauthenticated'
+
+interface AuthStateData {
+    status: AuthStatus
+    email: string | null
+}
+
+type AuthStateListener = (state: AuthStateData) => void
 
 // Auth status: 'unknown' | 'authenticated' | 'unauthenticated'
 // - unknown: initial state, haven't validated token yet
 // - authenticated: token validated successfully
 // - unauthenticated: no token or token invalid
-let authStateListeners = []
+let authStateListeners: AuthStateListener[] = []
 
 export const authState = {
-    status: 'unknown',  // 'unknown' | 'authenticated' | 'unauthenticated'
-    email: null,
+    status: 'unknown' as AuthStatus,
+    email: null as string | null,
 
-    subscribe(listener) {
+    subscribe(listener: AuthStateListener): () => void {
         authStateListeners.push(listener)
         listener({ status: this.status, email: this.email })
         return () => {
@@ -52,7 +62,7 @@ export const authState = {
         }
     },
 
-    setAuthenticated(email) {
+    setAuthenticated(email: string | null): void {
         if (this.status === 'authenticated' && this.email === email) return
         this.status = 'authenticated'
         this.email = email
@@ -60,7 +70,7 @@ export const authState = {
         authStateListeners.forEach(l => l({ status: this.status, email: this.email }))
     },
 
-    setUnauthenticated() {
+    setUnauthenticated(): void {
         if (this.status === 'unauthenticated') return
         this.status = 'unauthenticated'
         this.email = null
@@ -70,17 +80,22 @@ export const authState = {
 }
 
 // Initialize - status stays 'unknown' until tryRestoreSession runs
-function initAuthState() {
+function initAuthState(): void {
     const email = localStorage.getItem(USER_EMAIL_KEY)
     authState.email = email
     log('Initial auth state: unknown', { email })
 }
 
 // Internal version that doesn't update state (to avoid circular calls)
-function isTokenExpiredInternal() {
+function isTokenExpiredInternal(): boolean {
     const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
     if (!expiry) return true
     return Date.now() > parseInt(expiry, 10)
+}
+
+interface TokenInfo {
+    scope?: string
+    error?: string
 }
 
 /**
@@ -88,7 +103,7 @@ function isTokenExpiredInternal() {
  * Returns true if token is valid, false otherwise
  * Also stores granted scopes
  */
-async function validateToken(token) {
+async function validateToken(token: string): Promise<boolean> {
     if (!token) return false
 
     try {
@@ -96,7 +111,7 @@ async function validateToken(token) {
         const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + token)
 
         if (response.ok) {
-            const data = await response.json()
+            const data = await response.json() as TokenInfo
             // Store granted scopes
             if (data.scope) {
                 localStorage.setItem(SCOPES_KEY, data.scope)
@@ -106,12 +121,12 @@ async function validateToken(token) {
             }
             return true
         } else {
-            const data = await response.json()
+            const data = await response.json() as TokenInfo
             logWarn('Token validation failed:', data.error || response.status)
             return false
         }
     } catch (error) {
-        logError('Token validation error:', error.message)
+        logError('Token validation error:', (error as Error).message)
         return false
     }
 }
@@ -119,7 +134,7 @@ async function validateToken(token) {
 /**
  * Generate a UUID v4
  */
-function generateUUID() {
+function generateUUID(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0
         const v = c === 'x' ? r : (r & 0x3) | 0x8
@@ -130,7 +145,7 @@ function generateUUID() {
 /**
  * Get or create a unique user ID for this browser
  */
-function getUserId() {
+function getUserId(): string {
     let userId = localStorage.getItem(USER_ID_KEY)
     if (!userId) {
         userId = generateUUID()
@@ -143,7 +158,7 @@ function getUserId() {
 /**
  * Check if the current token is expired
  */
-export function isTokenExpired() {
+export function isTokenExpired(): boolean {
     const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
     if (!expiry) return true
     return Date.now() > parseInt(expiry, 10)
@@ -152,7 +167,7 @@ export function isTokenExpired() {
 /**
  * Check if token needs refresh (expired or expiring soon)
  */
-export function needsRefresh() {
+export function needsRefresh(): boolean {
     const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
     if (!expiry) return true
     return Date.now() > parseInt(expiry, 10) - REFRESH_BUFFER_MS
@@ -161,28 +176,28 @@ export function needsRefresh() {
 /**
  * Get the current access token
  */
-export function getAccessToken() {
+export function getAccessToken(): string | null {
     return localStorage.getItem(TOKEN_KEY)
 }
 
 /**
  * Get user email
  */
-export function getUserEmail() {
+export function getUserEmail(): string | null {
     return localStorage.getItem(USER_EMAIL_KEY)
 }
 
 /**
  * Check if there's a stored user ID (indicates previous sign-in attempt)
  */
-export function hasStoredUserId() {
+export function hasStoredUserId(): boolean {
     return !!localStorage.getItem(USER_ID_KEY)
 }
 
 /**
  * Check if a specific scope is granted
  */
-export function hasScope(scope) {
+export function hasScope(scope: string): boolean {
     const scopes = localStorage.getItem(SCOPES_KEY) || ''
     return scopes.split(' ').includes(scope)
 }
@@ -190,28 +205,28 @@ export function hasScope(scope) {
 /**
  * Check if Meet scope is granted
  */
-export function hasMeetScope() {
+export function hasMeetScope(): boolean {
     return hasScope(MEET_SCOPE)
 }
 
 /**
  * Fetch and update scopes from token
  */
-export async function refreshScopes() {
+export async function refreshScopes(): Promise<boolean> {
     const token = getAccessToken()
     if (!token) return false
 
     try {
         const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + token)
         if (response.ok) {
-            const data = await response.json()
+            const data = await response.json() as TokenInfo
             if (data.scope) {
                 localStorage.setItem(SCOPES_KEY, data.scope)
                 return true
             }
         }
     } catch (error) {
-        logError('Failed to refresh scopes:', error.message)
+        logError('Failed to refresh scopes:', (error as Error).message)
     }
     return false
 }
@@ -219,17 +234,17 @@ export async function refreshScopes() {
 /**
  * Check if authenticated (based on authState status)
  */
-export function isSignedIn() {
+export function isSignedIn(): boolean {
     return authState.status === 'authenticated'
 }
 
 /**
  * Store tokens in localStorage
  */
-function storeTokens(accessToken, expiresIn, email = null) {
+function storeTokens(accessToken: string, expiresIn: string | null, email: string | null = null): void {
     localStorage.setItem(TOKEN_KEY, accessToken)
 
-    const expiresInMs = (parseInt(expiresIn, 10) || 3600) * 1000
+    const expiresInMs = (parseInt(expiresIn || '3600', 10) || 3600) * 1000
     const expiryTime = Date.now() + expiresInMs
     localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
 
@@ -250,7 +265,7 @@ function storeTokens(accessToken, expiresIn, email = null) {
 /**
  * Clear all stored tokens
  */
-function clearTokens() {
+function clearTokens(): void {
     log('Clearing all tokens from localStorage')
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(TOKEN_EXPIRY_KEY)
@@ -260,11 +275,17 @@ function clearTokens() {
     authState.setUnauthenticated()
 }
 
+interface AuthCallbackResult {
+    success: boolean
+    email?: string | null
+    error?: string | null
+}
+
 /**
  * Handle OAuth callback parameters from URL
  * Call this on page load to process auth redirects
  */
-export function handleAuthCallback() {
+export function handleAuthCallback(): AuthCallbackResult | null {
     const params = new URLSearchParams(window.location.search)
 
     if (params.has('auth_success')) {
@@ -298,10 +319,17 @@ export function handleAuthCallback() {
     return null
 }
 
+interface RefreshResponse {
+    access_token: string
+    expires_in: string
+    email: string
+    error?: string
+}
+
 /**
  * Refresh access token using backend
  */
-async function refreshToken() {
+async function refreshToken(): Promise<string> {
     const userId = getUserId()
     log('Refreshing token for user:', userId)
 
@@ -312,7 +340,7 @@ async function refreshToken() {
     })
 
     if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json() as RefreshResponse
         logError('Token refresh failed:', error.error)
         if (error.error === 'not_authenticated' || error.error === 'refresh_token_expired') {
             clearTokens()
@@ -321,7 +349,7 @@ async function refreshToken() {
         throw new Error(error.error || 'Token refresh failed')
     }
 
-    const data = await response.json()
+    const data = await response.json() as RefreshResponse
     log('Token refresh successful')
     storeTokens(data.access_token, data.expires_in, data.email)
     return data.access_token
@@ -330,7 +358,7 @@ async function refreshToken() {
 /**
  * Ensure we have a valid access token, refreshing if needed
  */
-export async function ensureValidToken() {
+export async function ensureValidToken(): Promise<string> {
     const token = getAccessToken()
     const expired = isTokenExpired()
     const needs = needsRefresh()
@@ -372,10 +400,14 @@ export async function ensureValidToken() {
     return token
 }
 
+interface AuthUrlResponse {
+    url: string
+}
+
 /**
  * Sign in - redirect to Google OAuth via backend
  */
-export async function signIn() {
+export async function signIn(): Promise<void> {
     const userId = getUserId()
     log('Starting sign in flow for user:', userId)
 
@@ -385,7 +417,7 @@ export async function signIn() {
         throw new Error('Failed to get auth URL')
     }
 
-    const data = await response.json()
+    const data = await response.json() as AuthUrlResponse
     log('Redirecting to Google OAuth:', data.url.substring(0, 80) + '...')
     window.location.href = data.url
 }
@@ -393,7 +425,7 @@ export async function signIn() {
 /**
  * Sign out - clear tokens locally and revoke on backend
  */
-export async function signOut() {
+export async function signOut(): Promise<void> {
     const userId = getUserId()
     log('Signing out user:', userId)
 
@@ -417,7 +449,7 @@ export async function signOut() {
  * Call this on page load when settings indicate user was signed in
  * Returns true if session was restored, false otherwise
  */
-export async function tryRestoreSession() {
+export async function tryRestoreSession(): Promise<boolean> {
     log('Attempting to restore session...')
 
     const userId = localStorage.getItem(USER_ID_KEY)
@@ -439,7 +471,7 @@ export async function tryRestoreSession() {
         try {
             await refreshToken()
         } catch (error) {
-            logError('Session restore failed:', error.message)
+            logError('Session restore failed:', (error as Error).message)
             authState.setUnauthenticated()
             return false
         }
@@ -453,7 +485,7 @@ export async function tryRestoreSession() {
 /**
  * Migrate from old storage keys to new ones
  */
-export function migrateStorageKeys() {
+export function migrateStorageKeys(): void {
     const oldTokenKey = 'google_tasks_token'
     const oldExpiryKey = 'google_tasks_token_expiry'
 

@@ -1,13 +1,13 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
-    import { settings } from '../settings-store.svelte.js'
+    import { settings } from '../settings-store.svelte'
 
     let currentHrs = $state('')
     let currentMin = $state('')
     let currentSec = $state('')
     let currentAmPm = $state('')
     let currentDate = $state('')
-    let clockInterval = null
+    let clockInterval: ReturnType<typeof setInterval> | null = null
 
     function updateTime() {
         const now = new Date()

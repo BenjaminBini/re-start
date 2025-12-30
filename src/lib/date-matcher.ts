@@ -1,7 +1,9 @@
 // Natural date matcher for task input
 // Returns matched span + normalized Date for scheduling/highlighting.
 
-const MONTHS = {
+import type { DateMatchPosition, TimeMatch, DateCandidate, ParsedDate, DateFormat } from './types'
+
+const MONTHS: Record<string, number> = {
     january: 0,
     jan: 0,
     february: 1,
@@ -28,7 +30,7 @@ const MONTHS = {
     dec: 11,
 }
 
-const WEEKDAYS = {
+const WEEKDAYS: Record<string, number | string> = {
     sunday: 0,
     sun: 0,
     monday: 1,
@@ -50,7 +52,7 @@ const WEEKDAYS = {
     weekday: 'weekday', // handled separately
 }
 
-const RELATIVE_DAYS = {
+const RELATIVE_DAYS: Record<string, number> = {
     tomorrow: 1,
     tmrw: 1,
     tmr: 1,
@@ -67,42 +69,46 @@ const MONTH_FIRST_PATTERN = `\\b(${MONTH_NAME_PATTERN})\\b(?:\\s+${DAY_TOKEN_PAT
 const DAY_FIRST_PATTERN = `\\b${DAY_TOKEN_PATTERN}\\s+(${MONTH_NAME_PATTERN})\\b(?:\\s*,?\\s*${YEAR_TOKEN_PATTERN})?${TRAILING_BOUNDARY}`
 const WEEKDAY_REGEX = new RegExp(`(next)?\\s*\\b(${WEEKDAY_PATTERN})\\b`, 'gi')
 
-function isOptionsBag(value) {
+interface ParseOptions {
+    dateFormat?: DateFormat
+}
+
+function isOptionsBag(value: unknown): value is ParseOptions {
     return (
         value !== null && typeof value === 'object' && !(value instanceof Date)
     )
 }
 
-function startOfDay(date) {
+function startOfDay(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-function normalizeYear(year, nowYear) {
-    if (!year && year !== 0) return nowYear
+function normalizeYear(year: number | undefined, nowYear: number): number {
+    if (year === undefined) return nowYear
     if (year < 100) return 2000 + year
     return year
 }
 
-function nextWeekend(base) {
+function nextWeekend(base: Date): Date {
     const dow = base.getDay()
     if (dow === 6) return addDays(base, 1) // Saturday -> Sunday
     const offset = (6 - dow + 7) % 7 || 7 // Next Saturday
     return addDays(base, offset)
 }
 
-function addDays(date, days) {
+function addDays(date: Date, days: number): Date {
     const d = new Date(date)
     d.setDate(d.getDate() + days)
     return d
 }
 
-function nextWeekday(base, targetDow, isNextModifier = false) {
+function nextWeekday(base: Date, targetDow: number, isNextModifier = false): Date {
     const offsetRaw = (targetDow - base.getDay() + 7) % 7
     const offset = offsetRaw === 0 || isNextModifier ? offsetRaw + 7 : offsetRaw
     return addDays(base, offset)
 }
 
-function parseDayNumber(raw) {
+function parseDayNumber(raw: string): number | null {
     if (!raw) return null
     const cleaned = raw.replace(/(st|nd|rd|th)$/i, '')
     const num = parseInt(cleaned, 10)
@@ -110,20 +116,20 @@ function parseDayNumber(raw) {
     return num
 }
 
-function resolveDayToken(token) {
+function resolveDayToken(token: string | undefined): number | null {
     if (!token) return null
     if (token === 'first') return 1
     return parseDayNumber(token)
 }
 
-function clampFuture(date, now) {
+function clampFuture(date: Date, now: Date): Date {
     if (date.getTime() >= startOfDay(now).getTime()) return date
     const bumped = new Date(date)
     bumped.setFullYear(date.getFullYear() + 1)
     return bumped
 }
 
-function buildDate(month, day, year, now) {
+function buildDate(month: number, day: number | null, year: number | undefined, now: Date): Date {
     const y = normalizeYear(year, now.getFullYear())
     const targetDay = day || 1
     let candidate = new Date(y, month, targetDay)
@@ -133,10 +139,10 @@ function buildDate(month, day, year, now) {
     return candidate
 }
 
-function applyTime(date, hour, minute, ampmProvided) {
+function applyTime(date: Date, hour: number, minute: number | undefined, ampmProvided: string | null): Date {
     const result = new Date(date)
     let h = hour
-    let m = minute ?? 0
+    const m = minute ?? 0
 
     if (ampmProvided === 'am' || ampmProvided === 'a') {
         if (h === 12) h = 0
@@ -146,19 +152,20 @@ function applyTime(date, hour, minute, ampmProvided) {
         // No explicit am/pm, favor morning; 12 defaults to 12pm per spec
         if (h === 12) {
             h = 12
-        } else if (h <= 12) {
-            // keep as-is (morning)
         }
+        // keep as-is (morning) for other cases
     }
 
     result.setHours(h, m, 0, 0)
     return result
 }
 
-function findRelativeDates(text, lower, now, consider) {
+type CandidateConsumer = (candidate: DateCandidate) => void
+
+function findRelativeDates(_text: string, lower: string, now: Date, consider: CandidateConsumer): void {
     Object.entries(RELATIVE_DAYS).forEach(([word, delta]) => {
         const regex = new RegExp(`\\b${word}\\b`, 'g')
-        let m
+        let m: RegExpExecArray | null
         while ((m = regex.exec(lower))) {
             const date = addDays(startOfDay(now), delta)
             consider({
@@ -171,20 +178,20 @@ function findRelativeDates(text, lower, now, consider) {
     })
 }
 
-function resolveWeekend(base, isNext) {
+function resolveWeekend(base: Date, isNext: boolean): Date {
     const weekend = nextWeekend(base)
     return isNext ? addDays(weekend, 7) : weekend
 }
 
-function resolveWeekday(base, isNext) {
+function resolveWeekday(base: Date, isNext: boolean): Date {
     const dow = base.getDay()
     if (dow === 0) return addDays(base, 1)
     if (dow === 6) return addDays(base, 2)
     return isNext ? addDays(base, 1) : base
 }
 
-function findWeekdays(text, lower, now, consider) {
-    let m
+function findWeekdays(_text: string, lower: string, now: Date, consider: CandidateConsumer): void {
+    let m: RegExpExecArray | null
     while ((m = WEEKDAY_REGEX.exec(lower))) {
         const modifier = m[1]?.trim()
         const word = m[2]
@@ -195,13 +202,13 @@ function findWeekdays(text, lower, now, consider) {
         const target = WEEKDAYS[word]
         const base = startOfDay(now)
         const isNext = modifier === 'next'
-        let date
+        let date: Date
         if (word === 'weekend') {
             date = resolveWeekend(base, isNext)
         } else if (word === 'weekday') {
             date = resolveWeekday(base, isNext)
         } else {
-            date = nextWeekday(base, target, isNext)
+            date = nextWeekday(base, target as number, isNext)
         }
 
         consider({
@@ -213,8 +220,8 @@ function findWeekdays(text, lower, now, consider) {
     }
 }
 
-function findMonthDates(text, lower, now, consider) {
-    let m
+function findMonthDates(_text: string, lower: string, now: Date, consider: CandidateConsumer): void {
+    let m: RegExpExecArray | null
     const monthFirstRegex = new RegExp(MONTH_FIRST_PATTERN, 'gi')
     while ((m = monthFirstRegex.exec(lower))) {
         const [, monthWord, dayToken, yearToken] = m
@@ -229,16 +236,16 @@ function findMonthDates(text, lower, now, consider) {
 }
 
 function pushMonthMatch(
-    match,
-    monthWord,
-    dayToken,
-    yearToken,
-    now,
-    consider,
-    defaultDay = null
-) {
+    match: RegExpExecArray,
+    monthWord: string,
+    dayToken: string | undefined,
+    yearToken: string | undefined,
+    now: Date,
+    consider: CandidateConsumer,
+    defaultDay: number | null = null
+): void {
     const month = MONTHS[monthWord]
-    if (!month && month !== 0) return
+    if (month === undefined) return
     const day = dayToken ? resolveDayToken(dayToken) : defaultDay
     if (!day) return
     const year = yearToken ? parseInt(yearToken, 10) : undefined
@@ -252,16 +259,16 @@ function pushMonthMatch(
     })
 }
 
-function findNumericDates(lower, now, consider, dateFormat = 'mdy') {
+function findNumericDates(lower: string, now: Date, consider: CandidateConsumer, dateFormat: DateFormat = 'mdy'): void {
     const regex =
         /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?=[\s,.;!?)\-]|$)/g
-    let m
+    let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
         const part1 = parseInt(m[1], 10)
         const part2 = parseInt(m[2], 10)
         if (Number.isNaN(part1) || Number.isNaN(part2)) continue
-        let month
-        let day
+        let month: number
+        let day: number
         if (dateFormat === 'dmy') {
             day = part1
             month = part2 - 1
@@ -281,9 +288,9 @@ function findNumericDates(lower, now, consider, dateFormat = 'mdy') {
     }
 }
 
-function findOrdinalsOnly(lower, now, consider) {
+function findOrdinalsOnly(lower: string, now: Date, consider: CandidateConsumer): void {
     const regex = /\b(\d{1,2}(?:st|nd|rd|th))\b/g
-    let m
+    let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
         const day = m[1] === 'first' ? 1 : parseDayNumber(m[1])
         if (!day) continue
@@ -301,9 +308,11 @@ function findOrdinalsOnly(lower, now, consider) {
     }
 }
 
-function findTimeWithAmPm(lower, considerTime) {
+type TimeConsumer = (time: TimeMatch) => void
+
+function findTimeWithAmPm(lower: string, considerTime: TimeConsumer): void {
     const regex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)\b/g
-    let m
+    let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
         const hour = parseInt(m[1], 10)
         const minute = m[2] ? parseInt(m[2], 10) : 0
@@ -313,14 +322,14 @@ function findTimeWithAmPm(lower, considerTime) {
             end: m.index + m[0].length,
             hour,
             minute,
-            ampm: m[3],
+            ampm: m[3] as 'am' | 'pm',
         })
     }
 }
 
-function findTime24h(lower, considerTime) {
+function findTime24h(lower: string, considerTime: TimeConsumer): void {
     const regex = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
-    let m
+    let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
         considerTime({
             start: m.index,
@@ -332,9 +341,9 @@ function findTime24h(lower, considerTime) {
     }
 }
 
-function findBareHours(lower, considerTime) {
+function findBareHours(lower: string, considerTime: TimeConsumer): void {
     const regex = /\b([0-2]?\d)\b/g
-    let m
+    let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
         const hour = parseInt(m[1], 10)
         if (hour > 23) continue
@@ -349,19 +358,16 @@ function findBareHours(lower, considerTime) {
     }
 }
 
-function collectTimeMatches(lower) {
-    const matches = []
-    const push = (entry) => matches.push(entry)
+function collectTimeMatches(lower: string): TimeMatch[] {
+    const matches: TimeMatch[] = []
+    const push = (entry: TimeMatch): void => { matches.push(entry) }
     findTimeWithAmPm(lower, push)
     findTime24h(lower, push)
     findBareHours(lower, push)
     return matches
 }
 
-function combineDateAndTime(candidate, time, now) {
-    if (!time) return candidate
-
-    const hasTime = true
+function combineDateAndTime(candidate: DateCandidate, time: TimeMatch, now: Date): DateCandidate {
     const withTime = applyTime(
         candidate.date,
         time.hour,
@@ -380,20 +386,20 @@ function combineDateAndTime(candidate, time, now) {
             end: Math.max(candidate.match.end, time.end),
         },
         date: withTime,
-        hasTime,
+        hasTime: true,
         dateProvided: true,
     }
 }
 
-function isBridgeable(segment) {
+function isBridgeable(segment: string): boolean {
     if (!segment) return false
     if (segment.length > 4) return false
     return /\s/.test(segment)
 }
 
-function findAdjacentTime(candidate, times, lower) {
+function findAdjacentTime(candidate: DateCandidate, times: TimeMatch[], lower: string): TimeMatch | null {
     if (!times.length) return null
-    let bestAfter = null
+    let bestAfter: TimeMatch | null = null
     for (const time of times) {
         if (time.start < candidate.match.end) continue
         const bridge = lower.slice(candidate.match.end, time.start)
@@ -404,7 +410,7 @@ function findAdjacentTime(candidate, times, lower) {
     }
     if (bestAfter) return bestAfter
 
-    let bestBefore = null
+    let bestBefore: TimeMatch | null = null
     for (const time of times) {
         if (time.end > candidate.match.start) continue
         if (time.requiresDate) continue
@@ -417,7 +423,7 @@ function findAdjacentTime(candidate, times, lower) {
     return bestBefore
 }
 
-function scoreCandidate(candidate) {
+function scoreCandidate(candidate: DateCandidate): number {
     const typeWeight =
         candidate.dateProvided === false ? 1 : candidate.hasTime ? 3 : 2
     const span = candidate.match.end - candidate.match.start
@@ -425,17 +431,21 @@ function scoreCandidate(candidate) {
     return typeWeight * 1_000_000 + span * 1_000 + position
 }
 
-function selectBest(candidates) {
-    return candidates.reduce((best, curr) => {
+function selectBest(candidates: DateCandidate[]): DateCandidate | null {
+    return candidates.reduce<DateCandidate | null>((best, curr) => {
         if (!best) return curr
         return scoreCandidate(curr) >= scoreCandidate(best) ? curr : best
     }, null)
 }
 
-export function parseSmartDate(input, maybeNow, maybeOptions) {
+export function parseSmartDate(
+    input: string,
+    maybeNow?: Date | number | string | ParseOptions,
+    maybeOptions?: ParseOptions
+): ParsedDate | null {
     if (!input || !input.trim()) return null
     let now = new Date()
-    let options = {}
+    let options: ParseOptions = {}
 
     if (maybeNow instanceof Date) {
         const candidate = new Date(maybeNow)
@@ -454,10 +464,10 @@ export function parseSmartDate(input, maybeNow, maybeOptions) {
         options = maybeOptions
     }
 
-    const dateFormat = options.dateFormat === 'dmy' ? 'dmy' : 'mdy'
+    const dateFormat: DateFormat = options.dateFormat === 'dmy' ? 'dmy' : 'mdy'
     const lower = input.toLowerCase()
-    const candidates = []
-    const consider = (candidate) => {
+    const candidates: DateCandidate[] = []
+    const consider: CandidateConsumer = (candidate) => {
         if (!candidate || !candidate.date) return
         if (candidate.dateProvided === undefined) {
             candidate.dateProvided = true
@@ -498,14 +508,30 @@ export function parseSmartDate(input, maybeNow, maybeOptions) {
 
     const best = selectBest(withTime)
     if (!best || !best.match || !best.date) return null
+
+    // Format the date for return
+    const pad = (n: number): string => String(n).padStart(2, '0')
+    const y = best.date.getFullYear()
+    const m = pad(best.date.getMonth() + 1)
+    const d = pad(best.date.getDate())
+    let dateStr: string
+    if (!best.hasTime) {
+        dateStr = `${y}-${m}-${d}`
+    } else {
+        const h = pad(best.date.getHours())
+        const min = pad(best.date.getMinutes())
+        const s = pad(best.date.getSeconds())
+        dateStr = `${y}-${m}-${d}T${h}:${min}:${s}`
+    }
+
     return {
         match: best.match,
-        date: best.date,
+        date: dateStr,
         hasTime: Boolean(best.hasTime),
     }
 }
 
-export function stripDateMatch(text, match) {
+export function stripDateMatch(text: string, match: DateMatchPosition | null): string {
     if (!match) return text.trim()
     const before = text.slice(0, match.start).trimEnd()
     const after = text.slice(match.end).trimStart()
@@ -514,9 +540,9 @@ export function stripDateMatch(text, match) {
     return `${before} ${after}`
 }
 
-export function formatTaskDue(date, hasTime) {
+export function formatTaskDue(date: Date | null, hasTime: boolean): string | null {
     if (!date) return null
-    const pad = (n) => String(n).padStart(2, '0')
+    const pad = (n: number): string => String(n).padStart(2, '0')
     const y = date.getFullYear()
     const m = pad(date.getMonth() + 1)
     const d = pad(date.getDate())

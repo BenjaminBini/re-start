@@ -1,4 +1,6 @@
-let defaultSettings = {
+import type { Settings } from './types'
+
+const defaultSettings: Settings = {
     font: 'Geist Mono Variable',
     currentTheme: 'default',
     tabTitle: '~',
@@ -7,26 +9,27 @@ let defaultSettings = {
     googleTasksSignedIn: false,
     unsplashApiKey: '',
     // Clock
-    timeFormat: '12hr',
-    dateFormat: 'mdy',
+    timeFormat: '24hr',
+    dateFormat: 'dmy',
     // Weather
     showWeather: true,
     locationMode: 'manual',
     latitude: null,
     longitude: null,
-    tempUnit: 'fahrenheit',
-    speedUnit: 'mph',
+    tempUnit: 'celsius',
+    speedUnit: 'kmh',
     // Tasks
     showTasks: true,
     taskBackend: 'local',
     // Calendar
     showCalendar: true,
-    selectedCalendars: [], // Array of calendar IDs to show events from
+    selectedCalendars: [],
     // Background
     showBackground: false,
-    backgroundOpacity: 0.15,
+    backgroundOpacity: 0.85,
     // Links
     showLinks: true,
+    showFavicons: true,
     linksPerColumn: 4,
     linkTarget: '_self',
     links: [
@@ -50,11 +53,11 @@ let defaultSettings = {
     customCSS: '',
 }
 
-function loadSettings() {
+function loadSettings(): Settings {
     try {
         const stored = localStorage.getItem('settings')
         if (stored) {
-            const parsed = JSON.parse(stored)
+            const parsed = JSON.parse(stored) as Partial<Settings>
             return { ...defaultSettings, ...parsed }
         }
     } catch (error) {
@@ -64,15 +67,15 @@ function loadSettings() {
     return defaultSettings
 }
 
-export function saveSettings(settings) {
+export function saveSettings(settingsToSave: Settings): void {
     try {
-        localStorage.setItem('settings', JSON.stringify(settings))
+        localStorage.setItem('settings', JSON.stringify(settingsToSave))
     } catch (error) {
         console.error('failed to save settings to localStorage:', error)
     }
 }
 
-export function resetSettings() {
+export function resetSettings(): boolean {
     try {
         localStorage.removeItem('settings')
         // Reset the settings object to default
@@ -85,4 +88,4 @@ export function resetSettings() {
     }
 }
 
-export const settings = $state(loadSettings())
+export const settings: Settings = $state(loadSettings())

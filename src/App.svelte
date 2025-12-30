@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
     import '@fontsource-variable/geist-mono'
-    import { settings } from './lib/settings-store.svelte.js'
-    import { themes } from './lib/themes.js'
-    import { getBackground, loadCachedBackground, forceRefreshBackground } from './lib/unsplash-api.js'
-    import { handleAuthCallback, tryRestoreSession, hasStoredUserId, authState } from './lib/backends/google-auth.js'
+    import { settings } from './lib/settings-store.svelte'
+    import { themes } from './lib/themes'
+    import { getBackground, loadCachedBackground, forceRefreshBackground } from './lib/unsplash-api'
+    import { handleAuthCallback, tryRestoreSession, hasStoredUserId, authState } from './lib/backends/google-auth'
     import Agenda from './lib/components/Agenda.svelte'
     import Calendar from './lib/components/Calendar.svelte'
     import Clock from './lib/components/Clock.svelte'
@@ -11,11 +11,12 @@
     import Settings from './lib/components/Settings.svelte'
     import Tasks from './lib/components/Tasks.svelte'
     import Weather from './lib/components/Weather.svelte'
-    import { saveSettings } from './lib/settings-store.svelte.js'
+    import { saveSettings } from './lib/settings-store.svelte'
     import { Settings as SettingsIcon } from 'lucide-svelte'
+    import type { UnsplashBackground } from './lib/types'
 
     let showSettings = $state(false)
-    let background = $state(null)
+    let background = $state<UnsplashBackground | null>(null)
     let thumbLoaded = $state(false)
     let fullLoaded = $state(false)
 
@@ -27,11 +28,11 @@
                 !settings.googleTasksSignedIn)
     )
 
-    function closeSettings() {
+    function closeSettings(): void {
         showSettings = false
     }
 
-    function applyTheme(themeName) {
+    function applyTheme(themeName: string): void {
         const theme = themes[themeName] || themes['default']
         const root = document.documentElement
         for (const [key, value] of Object.entries(theme.colors)) {
@@ -124,16 +125,16 @@
             })
     })
 
-    function handleThumbLoad() {
+    function handleThumbLoad(): void {
         thumbLoaded = true
     }
 
-    function handleFullLoad() {
+    function handleFullLoad(): void {
         fullLoaded = true
     }
 
     // Expose refresh function for Settings component
-    async function refreshBackground() {
+    async function refreshBackground(): Promise<void> {
         thumbLoaded = false
         fullLoaded = false
         background = await forceRefreshBackground(settings.unsplashApiKey)

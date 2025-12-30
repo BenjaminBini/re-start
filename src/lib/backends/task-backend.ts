@@ -1,11 +1,19 @@
 // Base class for task backend implementations
 // Defines the interface that all backends must implement
 
-class TaskBackend {
-    /**
-     * @param {Object} config - Backend-specific configuration
-     */
-    constructor(config) {
+import type { TaskBackendConfig, EnrichedTask } from '../types'
+
+export interface TaskData {
+    timestamp?: number
+    [key: string]: unknown
+}
+
+abstract class TaskBackend {
+    protected config: TaskBackendConfig
+    protected data: TaskData = {}
+    protected cacheExpiry = 0
+
+    constructor(config: TaskBackendConfig) {
         if (new.target === TaskBackend) {
             throw new Error('TaskBackend is an abstract class')
         }
@@ -14,54 +22,43 @@ class TaskBackend {
 
     /**
      * Synchronize tasks with the backend
-     * @param {string[]} [resourceTypes] - Optional list of resource types to sync
-     * @returns {Promise<void>}
      */
-    async sync(resourceTypes) {
-        throw new Error('sync() must be implemented by subclass')
-    }
+    abstract sync(resourceTypes?: string[]): Promise<void>
 
     /**
      * Get all tasks, filtered and sorted
-     * @returns {Array<Object>} Array of task objects with enriched data
      */
-    getTasks() {
-        throw new Error('getTasks() must be implemented by subclass')
-    }
+    abstract getTasks(): EnrichedTask[]
 
     /**
      * Add a new task
-     * @param {string} content - Task content/title
-     * @param {string|null} due - Optional due date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-     * @returns {Promise<void>}
      */
-    async addTask(content, due) {
-        throw new Error('addTask() must be implemented by subclass')
-    }
+    abstract addTask(content: string, due: string | null): Promise<void>
 
     /**
      * Mark a task as complete
-     * @param {string} taskId - ID of the task to complete
-     * @returns {Promise<void>}
      */
-    async completeTask(taskId) {
-        throw new Error('completeTask() must be implemented by subclass')
-    }
+    abstract completeTask(taskId: string): Promise<void>
 
     /**
      * Mark a task as incomplete
-     * @param {string} taskId - ID of the task to uncomplete
-     * @returns {Promise<void>}
      */
-    async uncompleteTask(taskId) {
-        throw new Error('uncompleteTask() must be implemented by subclass')
-    }
+    abstract uncompleteTask(taskId: string): Promise<void>
 
+    /**
+     * Delete a task
+     */
+    abstract deleteTask(taskId: string): Promise<void>
+
+    /**
+     * Clear all local data/cache
+     */
+    abstract clearLocalData(): void
 
     /**
      * Sort tasks: unchecked first, then by completion time, due date, project
      */
-    static sortTasks(tasks) {
+    static sortTasks(tasks: EnrichedTask[]): EnrichedTask[] {
         return tasks.sort((a, b) => {
             // Unchecked tasks first
             if (a.checked !== b.checked) return a.checked ? 1 : -1
@@ -101,37 +98,18 @@ class TaskBackend {
     }
 
     /**
-     * Delete a task
-     * @param {string} taskId - ID of the task to delete
-     * @returns {Promise<void>}
-     */
-    async deleteTask(taskId) {
-        throw new Error('deleteTask() must be implemented by subclass')
-    }
-
-    /**
-     * Clear all local data/cache
-     * @returns {void}
-     */
-    clearLocalData() {
-        throw new Error('clearLocalData() must be implemented by subclass')
-    }
-
-    /**
      * Check if cache is stale (default implementation)
      * Subclasses should set this.data.timestamp and this.cacheExpiry
-     * @returns {boolean}
      */
-    isCacheStale() {
+    isCacheStale(): boolean {
         if (!this.data?.timestamp) return true
         return Date.now() - this.data.timestamp >= (this.cacheExpiry || 0)
     }
 
     /**
      * Invalidate cache to force fresh sync
-     * @returns {void}
      */
-    invalidateCache() {
+    invalidateCache(): void {
         if (this.data) {
             this.data.timestamp = 0
         }
@@ -139,19 +117,15 @@ class TaskBackend {
 
     /**
      * Get project name by ID
-     * @param {string} projectId - Project ID
-     * @returns {string} Project name or empty string
      */
-    getProjectName(projectId) {
+    getProjectName(_projectId: string): string {
         return ''
     }
 
     /**
      * Get label names by IDs
-     * @param {string[]} labelIds - Array of label IDs
-     * @returns {string[]} Array of label names
      */
-    getLabelNames(labelIds) {
+    getLabelNames(_labelIds: string[]): string[] {
         return []
     }
 }
