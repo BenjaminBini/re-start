@@ -57,19 +57,40 @@ button {
     display: flex;
 }
 
-.panel {
-    position: relative;
-    padding: 1.5rem;
-    overflow: hidden;
-    width: 100%;
+.panel-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
     background: var(--bg-1);
+    z-index: 0;
 }
 
-/* Frosted glass effect when background image is enabled */
-body.has-background .panel {
+body.has-background .panel-wrapper::before {
     background: color-mix(in oklch, var(--bg-1) 80%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+}
+
+.panel {
+    position: relative;
+    z-index: 1;
+    padding: 1.5rem;
+    padding-bottom: 0;
+    overflow: hidden;
+    width: 100%;
+    overflow-y: auto;
+    mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black calc(100% - 3rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black calc(100% - 3rem),
+        transparent 100%
+    );
 }
 
 .panel-label,
@@ -149,7 +170,7 @@ input {
 .sync-btn:disabled {
     cursor: not-allowed;
 }
-.panel:hover .sync-btn {
+.panel-wrapper:hover .sync-btn {
     opacity: 1;
 }
 
@@ -158,6 +179,10 @@ input {
     animation: spin 1s linear infinite;
 }
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
