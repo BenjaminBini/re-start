@@ -369,8 +369,8 @@
     }
     .event-meta {
         display: flex;
-        align-items: center;
-        gap: 1ch;
+        flex-direction: column;
+        gap: 0.15rem;
         font-size: 0.8rem;
         color: var(--txt-3);
     }

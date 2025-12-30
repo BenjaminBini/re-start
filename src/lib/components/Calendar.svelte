@@ -179,6 +179,5 @@
         color: var(--txt-1);
         font-weight: 600;
         background: var(--txt-4);
-        border-radius: 3px;
     }
 </style>
