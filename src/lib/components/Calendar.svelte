@@ -3,7 +3,7 @@
     import { createCalendarBackend } from '../backends/index.js'
     import { settings } from '../settings-store.svelte.js'
     import { authState, hasMeetScope, signIn, refreshScopes } from '../backends/google-auth.js'
-    import { RefreshCw, Video, MapPin, Plus, Copy, Check, X } from 'lucide-svelte'
+    import { RefreshCw, Video, MapPin, Copy, Check, X } from 'lucide-svelte'
 
     function getVideoProvider(url) {
         if (!url) return null
@@ -210,8 +210,9 @@
                     disabled={creatingMeet}
                     title="Create instant Meet"
                 >
-                    <Plus size={12} />
-                    instant conf
+                    <svg class="meet-icon" viewBox="0 0 50 50" fill="currentColor">
+                        <path d="M2 18L2 32 12 32 12 18zM39 9v4.31l-10 9V16H14V6h22C37.66 6 39 7.34 39 9zM29 27.69l10 9V41c0 1.66-1.34 3-3 3H14V34h15V27.69zM12 34v10H5c-1.657 0-3-1.343-3-3v-7H12zM12 6L12 16 2 16zM29 25L39 16 39 34zM49 9.25v31.5c0 .87-1.03 1.33-1.67.75L41 35.8V14.2l6.33-5.7C47.97 7.92 49 8.38 49 9.25z"/>
+                    </svg>
                 </button>
             </div>
 
@@ -407,23 +408,20 @@
         color: var(--txt-1);
     }
 
-    /* Instant Meet button */
+    /* Widget header with Meet button */
     .widget-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 1ch;
+        gap: 0.75ch;
     }
     .instant-meet-btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.25ch;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
+        padding: 0.2rem;
         color: var(--txt-3);
         background: transparent;
         border: 1px solid var(--txt-4);
-        border-radius: 4px;
+        border-radius: 3px;
         cursor: pointer;
         transition: all 0.15s ease;
     }
@@ -434,6 +432,10 @@
     .instant-meet-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+    .meet-icon {
+        width: 12px;
+        height: 12px;
     }
 
     /* Meet popup overlay */
