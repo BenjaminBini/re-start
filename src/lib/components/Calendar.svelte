@@ -1,5 +1,5 @@
 <script>
-    const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    const DAYS = ['m', 't', 'w', 't', 'f', 's', 's']
     const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
                     'july', 'august', 'september', 'october', 'november', 'december']
 

@@ -204,6 +204,13 @@
                     <span class="bright">{eventCount}</span>
                     event{eventCount === 1 ? '' : 's'} today
                 </a>
+                <button
+                    class="instant-meet-btn"
+                    onclick={createInstantMeet}
+                    disabled={creatingMeet}
+                >
+                    + instant conf
+                </button>
             </div>
 
             <br />
@@ -273,13 +280,6 @@
                     {/if}
                 </div>
             </div>
-            <button
-                class="instant-meet-btn"
-                onclick={createInstantMeet}
-                disabled={creatingMeet}
-            >
-                + instant conf
-            </button>
             <button
                 class="sync-btn"
                 onclick={() => loadEvents(true)}
@@ -405,10 +405,15 @@
         color: var(--txt-1);
     }
 
+    /* Widget header with instant conf */
+    .widget-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
     /* Instant Meet button */
     .instant-meet-btn {
-        display: block;
-        margin-top: 0.5rem;
         padding: 0;
         font-size: 0.85rem;
         color: var(--txt-2);
@@ -416,7 +421,6 @@
         border: none;
         cursor: pointer;
         transition: color 0.15s ease;
-        text-align: left;
     }
     .instant-meet-btn:hover {
         color: var(--txt-1);
