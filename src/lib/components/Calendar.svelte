@@ -1,5 +1,5 @@
 <script>
-    const DAYS = ['m', 't', 'w', 't', 'f', 's', 's']
+    const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
     const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
                     'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -151,12 +151,12 @@
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         gap: 0;
-        color: var(--txt-3);
+        color: var(--txt-2);
         margin-bottom: 0.25rem;
     }
     .day-name {
         text-align: center;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
     }
     .weeks {
         display: flex;
