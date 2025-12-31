@@ -1,9 +1,0 @@
-{
-  "sourceType": "ideation",
-  "ideationType": "code_quality",
-  "ideaId": "cq-001",
-  "rationale": "Code duplication leads to maintenance burden where fixes must be applied in multiple places. If authentication error handling needs to change, it must be updated in both files. Extracting to a shared utility in google-auth.ts would centralize this logic.",
-  "category": "refactoring",
-  "codeQualitySeverity": "minor",
-  "priority": "medium"
-}

@@ -1,11 +1,11 @@
 {
   "active": true,
   "spec": "003-extract-duplicated-apirequest-function-from-google",
-  "state": "building",
+  "state": "complete",
   "subtasks": {
-    "completed": 4,
+    "completed": 5,
     "total": 5,
-    "in_progress": 1,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
@@ -21,5 +21,5 @@
     "number": 6,
     "started_at": "2025-12-31T17:17:03.338631"
   },
-  "last_update": "2025-12-31T17:26:17.865302"
+  "last_update": "2025-12-31T17:27:28.979589"
 }
