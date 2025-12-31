@@ -1,5 +1,6 @@
 import TaskBackend from './task-backend'
 import type { TaskBackendConfig, EnrichedTask, RawTask, TaskDue } from '../types'
+import { generateUUID } from '../uuid'
 
 interface LocalTaskData {
     items: RawTask[]
@@ -151,7 +152,7 @@ class LocalStorageBackend extends TaskBackend {
     async addTask(content: string, due: string | null): Promise<void> {
         const newDue: TaskDue | null = due ? { date: due } : null
         const newTask: RawTask = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             content: content,
             checked: false,
             completed_at: null,
