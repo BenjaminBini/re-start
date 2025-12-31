@@ -105,7 +105,7 @@
           "id": "3.1",
           "title": "Run all tests",
           "description": "Execute npm test to ensure all existing tests still pass",
-          "status": "pending",
+          "status": "completed",
           "files": [],
           "acceptance_criteria": [
             "All existing tests pass",
