@@ -9,12 +9,34 @@
 
 ## Subtasks
 - [x] 1.1: Add apiRequest function to google-auth.ts - COMPLETED
-- [ ] 2.1: Update google-tasks-backend.ts to use shared apiRequest
-- [ ] 2.2: Update google-calendar-backend.ts to use shared apiRequest
-- [ ] 3.1: Run TypeScript compilation check
+- [x] 2.1: Update google-tasks-backend.ts to use shared apiRequest - COMPLETED
+- [x] 2.2: Update google-calendar-backend.ts to use shared apiRequest - COMPLETED
+- [x] 3.1: Run TypeScript compilation check - COMPLETED
 - [ ] 3.2: Run tests
 
 ## Recent Changes
+### 2024-12-31 - Subtask 3.1 Completed
+- Ran npm run build:firefox successfully
+- TypeScript compilation completed without errors
+- Build output: ✓ 3792 modules transformed, ✓ built in 2.77s
+- All modified files (google-auth.ts, google-tasks-backend.ts, google-calendar-backend.ts) have no type errors
+- Acceptance criteria met: TypeScript compiles cleanly after refactoring
+### 2024-12-31 - Subtask 2.2 Completed
+- Replaced private apiRequest method in google-calendar-backend.ts with a wrapper
+- Wrapper constructs full URL from baseUrl + endpoint
+- Delegates to googleAuth.apiRequest<T>()
+- Preserves Content-Type: application/json header
+- Reduced method from 27 lines to 13 lines (simplified by 52%)
+- Commit: 9af3214
+### 2024-12-31 - Subtask 2.1 Completed
+- Replaced private apiRequest method in google-tasks-backend.ts with a wrapper
+- Wrapper constructs full URL from baseUrl + endpoint
+- Delegates to googleAuth.apiRequest<T>()
+- Preserves Content-Type: application/json header
+- Reduced method from 23 lines to 9 lines (simplified by 60%)
+- TypeScript build successful with no errors
+- Commit: e99dcf9
+
 ### 2024-12-31 - Subtask 1.1 Completed
 - Created generic `apiRequest<T>()` function in google-auth.ts
 - Function accepts url (string) and options (RequestInit)

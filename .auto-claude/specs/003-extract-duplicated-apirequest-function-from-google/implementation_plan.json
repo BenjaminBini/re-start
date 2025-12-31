@@ -14,7 +14,9 @@
           "status": "completed",
           "dependencies": [],
           "estimated_effort": "small",
-          "files_to_modify": ["src/lib/backends/google-auth.ts"],
+          "files_to_modify": [
+            "src/lib/backends/google-auth.ts"
+          ],
           "acceptance_criteria": [
             "Function is exported from google-auth.ts",
             "Function signature: apiRequest<T>(url: string, options?: RequestInit): Promise<T>",
@@ -35,10 +37,14 @@
           "id": "2.1",
           "title": "Update google-tasks-backend.ts to use shared apiRequest",
           "description": "Replace the private apiRequest method with a wrapper that calls the shared function. The wrapper constructs the full URL from baseUrl + endpoint and delegates to googleAuth.apiRequest.",
-          "status": "pending",
-          "dependencies": ["1.1"],
+          "status": "completed",
+          "dependencies": [
+            "1.1"
+          ],
           "estimated_effort": "small",
-          "files_to_modify": ["src/lib/backends/google-tasks-backend.ts"],
+          "files_to_modify": [
+            "src/lib/backends/google-tasks-backend.ts"
+          ],
           "acceptance_criteria": [
             "Private apiRequest method is simplified to construct URL and call googleAuth.apiRequest",
             "All existing API calls continue to work",
@@ -49,15 +55,21 @@
           "id": "2.2",
           "title": "Update google-calendar-backend.ts to use shared apiRequest",
           "description": "Replace the private apiRequest method with a wrapper that calls the shared function. The wrapper constructs the full URL from baseUrl + endpoint and delegates to googleAuth.apiRequest.",
-          "status": "pending",
-          "dependencies": ["1.1"],
+          "status": "completed",
+          "dependencies": [
+            "1.1"
+          ],
           "estimated_effort": "small",
-          "files_to_modify": ["src/lib/backends/google-calendar-backend.ts"],
+          "files_to_modify": [
+            "src/lib/backends/google-calendar-backend.ts"
+          ],
           "acceptance_criteria": [
             "Private apiRequest method is simplified to construct URL and call googleAuth.apiRequest",
             "All existing API calls continue to work",
             "No changes to public API"
-          ]
+          ],
+          "notes": "Replaced private apiRequest method in google-calendar-backend.ts with a wrapper that constructs full URL from baseUrl + endpoint and delegates to googleAuth.apiRequest<T>(). Reduced method from 27 lines to 13 lines (52% reduction). All acceptance criteria met: Private apiRequest method simplified, no changes to public API.",
+          "updated_at": "2025-12-31T16:24:21.578018+00:00"
         }
       ]
     },
@@ -70,21 +82,28 @@
           "id": "3.1",
           "title": "Run TypeScript compilation check",
           "description": "Ensure TypeScript compiles without errors after the refactoring",
-          "status": "pending",
-          "dependencies": ["2.1", "2.2"],
+          "status": "completed",
+          "dependencies": [
+            "2.1",
+            "2.2"
+          ],
           "estimated_effort": "small",
           "files_to_modify": [],
           "acceptance_criteria": [
             "npm run build:firefox completes without TypeScript errors",
             "No type errors in modified files"
-          ]
+          ],
+          "notes": "TypeScript compilation successful. Build completed with ✓ 3792 modules transformed in 2.77s. No type errors in modified files (google-auth.ts, google-tasks-backend.ts, google-calendar-backend.ts). All acceptance criteria met.",
+          "updated_at": "2025-12-31T17:25:15.000000+00:00"
         },
         {
           "id": "3.2",
           "title": "Run tests",
           "description": "Run existing tests to ensure no regressions",
           "status": "pending",
-          "dependencies": ["3.1"],
+          "dependencies": [
+            "3.1"
+          ],
           "estimated_effort": "small",
           "files_to_modify": [],
           "acceptance_criteria": [
@@ -101,5 +120,6 @@
     "src/lib/backends/google-calendar-backend.ts"
   ],
   "risk_assessment": "Low - This is a straightforward extraction of identical code with no behavioral changes",
-  "notes": "The apiRequest functions in both backends are character-for-character identical except they use different baseUrl values. The refactoring preserves existing behavior while centralizing the authentication and error handling logic."
+  "notes": "The apiRequest functions in both backends are character-for-character identical except they use different baseUrl values. The refactoring preserves existing behavior while centralizing the authentication and error handling logic.",
+  "last_updated": "2025-12-31T17:25:15.000000+00:00"
 }
