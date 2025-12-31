@@ -1,6 +1,15 @@
 <script lang="ts">
     import { settings } from '../../settings-store.svelte'
-    import RadioButton from '../RadioButton.svelte'
+    import {
+        Checkbox,
+        FormGroup,
+        RadioGroup,
+        NumberInput,
+        Button,
+        InlineGroup,
+        GridGroup,
+        RadioButton,
+    } from '../ui'
 
     let locationLoading = $state(false)
     let locationError = $state<string | null>(null)
@@ -49,155 +58,67 @@
     }
 </script>
 
-<div class="group">
-    <button class="checkbox-label" onclick={() => settings.showWeather = !settings.showWeather}>
-        <span class="checkbox">{settings.showWeather ? '[x]' : '[ ]'}</span>
-        enabled
-    </button>
-</div>
+<FormGroup>
+    <Checkbox bind:checked={settings.showWeather}>enabled</Checkbox>
+</FormGroup>
 
 {#if settings.showWeather}
-    <div class="group">
-        <div class="setting-label">location</div>
-        <div class="radio-group">
-            <RadioButton
-                bind:group={settings.locationMode}
-                value="manual"
-            >
+    <FormGroup label="location">
+        <RadioGroup>
+            <RadioButton bind:group={settings.locationMode} value="manual">
                 manual
             </RadioButton>
-            <RadioButton
-                bind:group={settings.locationMode}
-                value="auto"
-            >
+            <RadioButton bind:group={settings.locationMode} value="auto">
                 auto
             </RadioButton>
-        </div>
-    </div>
+        </RadioGroup>
+    </FormGroup>
 
     {#if settings.locationMode === 'manual'}
-        <div class="inline-group">
-            <div class="group">
-                <label for="latitude">latitude</label>
-                <input
-                    id="latitude"
-                    type="number"
+        <InlineGroup>
+            <FormGroup label="latitude">
+                <NumberInput
                     bind:value={settings.latitude}
+                    id="latitude"
                     step="0.01"
                 />
-            </div>
-            <div class="group">
-                <label for="longitude">longitude</label>
-                <input
-                    id="longitude"
-                    type="number"
+            </FormGroup>
+            <FormGroup label="longitude">
+                <NumberInput
                     bind:value={settings.longitude}
+                    id="longitude"
                     step="0.01"
                 />
-            </div>
-            <div class="group auto-width">
-                <span class="spacer">&nbsp;</span>
-                <button
-                    class="button"
-                    onclick={useCurrentLocation}
-                    disabled={locationLoading}
-                >
-                    [{locationError
-                        ? locationError
-                        : locationLoading
-                          ? '...'
-                          : 'detect'}]
-                </button>
-            </div>
-        </div>
+            </FormGroup>
+            <FormGroup autoWidth>
+                <span>&nbsp;</span>
+                <Button onclick={useCurrentLocation} disabled={locationLoading}>
+                    {locationError ?? (locationLoading ? '...' : 'detect')}
+                </Button>
+            </FormGroup>
+        </InlineGroup>
     {/if}
 
-    <div class="format-grid">
-        <div class="group">
-            <div class="setting-label">temperature</div>
-            <div class="radio-group">
-                <RadioButton
-                    bind:group={settings.tempUnit}
-                    value="fahrenheit"
-                >
+    <GridGroup columns={2}>
+        <FormGroup label="temperature">
+            <RadioGroup>
+                <RadioButton bind:group={settings.tempUnit} value="fahrenheit">
                     °F
                 </RadioButton>
                 <RadioButton bind:group={settings.tempUnit} value="celsius">
                     °C
                 </RadioButton>
-            </div>
-        </div>
-        <div class="group">
-            <div class="setting-label">speed</div>
-            <div class="radio-group">
+            </RadioGroup>
+        </FormGroup>
+        <FormGroup label="speed">
+            <RadioGroup>
                 <RadioButton bind:group={settings.speedUnit} value="mph">
                     mph
                 </RadioButton>
                 <RadioButton bind:group={settings.speedUnit} value="kmh">
                     km/h
                 </RadioButton>
-            </div>
-        </div>
-    </div>
+            </RadioGroup>
+        </FormGroup>
+    </GridGroup>
 {/if}
-
-<style>
-    .group {
-        width: 100%;
-        margin-bottom: 1.5rem;
-    }
-    .group > label,
-    .setting-label {
-        display: block;
-        margin-bottom: 0.5rem;
-    }
-    .group input[type='number'] {
-        width: 100%;
-        padding: 0.5rem;
-        background: var(--bg-2);
-        border: 2px solid var(--bg-3);
-    }
-    .radio-group {
-        display: flex;
-        gap: 3ch;
-    }
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-        background: none;
-        border: none;
-        padding: 0;
-        font: inherit;
-        color: inherit;
-        text-align: left;
-    }
-    .checkbox-label .checkbox {
-        color: var(--txt-2);
-    }
-    .spacer {
-        display: block;
-    }
-    .inline-group {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .inline-group .group {
-        flex: 1;
-        margin-bottom: 0;
-    }
-    .inline-group .group.auto-width {
-        flex: 0 0 auto;
-    }
-    .format-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem 2rem;
-        margin-bottom: 1.5rem;
-    }
-    .format-grid .group {
-        margin-bottom: 0;
-    }
-</style>

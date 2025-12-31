@@ -2,21 +2,26 @@
     import { settings, saveSettings } from '../../settings-store.svelte'
     import { createTaskBackend } from '../../backends/index'
     import type GoogleTasksBackend from '../../backends/google-tasks-backend'
+    import { Button, VerifyButton } from '../ui'
+    import IntegrationCard from './IntegrationCard.svelte'
 
     let googleTasksApi = $state<GoogleTasksBackend | null>(null)
     let signingIn = $state(false)
     let signInError = $state('')
-    let googleUserEmail = $state(localStorage.getItem('google_user_email') || '')
+    let googleUserEmail = $state(
+        localStorage.getItem('google_user_email') || ''
+    )
 
-    // Todoist verification state
     let verifyingTodoist = $state(false)
-    let todoistVerified = $state<boolean | null>(loadVerification('todoist', settings.todoistApiToken))
+    let todoistVerified = $state<boolean | null>(
+        loadVerification('todoist', settings.todoistApiToken)
+    )
 
-    // Unsplash verification state
     let verifyingUnsplash = $state(false)
-    let unsplashVerified = $state<boolean | null>(loadVerification('unsplash', settings.unsplashApiKey))
+    let unsplashVerified = $state<boolean | null>(
+        loadVerification('unsplash', settings.unsplashApiKey)
+    )
 
-    // Load/save verification status from localStorage
     function loadVerification(key: string, token: string): boolean | null {
         if (!token) return null
         try {
@@ -29,9 +34,16 @@
         return null
     }
 
-    function saveVerification(key: string, token: string, valid: boolean): void {
+    function saveVerification(
+        key: string,
+        token: string,
+        valid: boolean
+    ): void {
         try {
-            localStorage.setItem(`verify_${key}`, JSON.stringify({ token, valid }))
+            localStorage.setItem(
+                `verify_${key}`,
+                JSON.stringify({ token, valid })
+            )
         } catch (e) {}
     }
 
@@ -83,17 +95,24 @@
         todoistVerified = null
 
         try {
-            const response = await fetch('https://api.todoist.com/sync/v9/sync', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${settings.todoistApiToken}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'sync_token=*&resource_types=["user"]'
-            })
+            const response = await fetch(
+                'https://api.todoist.com/sync/v9/sync',
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${settings.todoistApiToken}`,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'sync_token=*&resource_types=["user"]',
+                }
+            )
 
             todoistVerified = response.ok
-            saveVerification('todoist', settings.todoistApiToken, todoistVerified)
+            saveVerification(
+                'todoist',
+                settings.todoistApiToken,
+                todoistVerified
+            )
         } catch (err) {
             console.error('Todoist verification error:', err)
             todoistVerified = false
@@ -113,14 +132,21 @@
         unsplashVerified = null
 
         try {
-            const response = await fetch('https://api.unsplash.com/photos/random?count=1', {
-                headers: {
-                    'Authorization': `Client-ID ${settings.unsplashApiKey}`
+            const response = await fetch(
+                'https://api.unsplash.com/photos/random?count=1',
+                {
+                    headers: {
+                        Authorization: `Client-ID ${settings.unsplashApiKey}`,
+                    },
                 }
-            })
+            )
 
             unsplashVerified = response.ok
-            saveVerification('unsplash', settings.unsplashApiKey, unsplashVerified)
+            saveVerification(
+                'unsplash',
+                settings.unsplashApiKey,
+                unsplashVerified
+            )
         } catch (err) {
             console.error('Unsplash verification error:', err)
             unsplashVerified = false
@@ -130,7 +156,6 @@
         }
     }
 
-    // Update verification status when keys change (load from cache or reset)
     $effect(() => {
         todoistVerified = loadVerification('todoist', settings.todoistApiToken)
     })
@@ -140,152 +165,63 @@
     })
 </script>
 
-<div class="integration-card">
-    <div class="integration-header">
-        <span class="integration-name">google</span>
-        <span class="integration-desc">tasks & calendar</span>
-        {#if settings.googleTasksSignedIn && googleUserEmail}
-            <span class="integration-email">{googleUserEmail}</span>
-        {/if}
-    </div>
-    <div class="integration-content">
-        <button
-            class="button"
-            onclick={settings.googleTasksSignedIn
-                ? handleGoogleSignOut
-                : handleGoogleSignIn}
-            disabled={signingIn}
-        >
-            [{settings.googleTasksSignedIn
-                ? 'sign out'
-                : signInError
-                  ? signInError
-                  : signingIn
-                    ? 'signing in...'
-                    : 'sign in'}]
-        </button>
-    </div>
-</div>
+<IntegrationCard
+    name="google"
+    description="tasks & calendar"
+    email={settings.googleTasksSignedIn ? googleUserEmail : ''}
+>
+    <Button
+        onclick={settings.googleTasksSignedIn
+            ? handleGoogleSignOut
+            : handleGoogleSignIn}
+        disabled={signingIn}
+    >
+        {settings.googleTasksSignedIn
+            ? 'sign out'
+            : signInError
+              ? signInError
+              : signingIn
+                ? 'signing in...'
+                : 'sign in'}
+    </Button>
+</IntegrationCard>
 
-<div class="integration-card">
-    <div class="integration-header">
-        <span class="integration-name">todoist</span>
-        <span class="integration-desc">tasks</span>
-    </div>
-    <div class="integration-content stacked">
-        <input
-            id="todoist-token"
-            type="password"
-            autocomplete="off"
-            data-1p-ignore
-            data-bwignore
-            data-lpignore="true"
-            data-form-type="other"
-            bind:value={settings.todoistApiToken}
-            placeholder="api token"
-        />
-        <button
-            class="verify-link"
-            class:valid={todoistVerified === true}
-            class:invalid={todoistVerified === false}
-            onclick={verifyTodoistKey}
-            disabled={verifyingTodoist || !settings.todoistApiToken}
-        >
-            {#if verifyingTodoist}verifying...{:else if todoistVerified === true}valid{:else if todoistVerified === false}invalid{:else}verify{/if}
-        </button>
-    </div>
-</div>
+<IntegrationCard name="todoist" description="tasks" stacked>
+    <input
+        id="todoist-token"
+        type="password"
+        autocomplete="off"
+        data-1p-ignore
+        data-bwignore
+        data-lpignore="true"
+        data-form-type="other"
+        bind:value={settings.todoistApiToken}
+        placeholder="api token"
+    />
+    <VerifyButton
+        onclick={verifyTodoistKey}
+        verifying={verifyingTodoist}
+        verified={todoistVerified}
+        disabled={!settings.todoistApiToken}
+    />
+</IntegrationCard>
 
-<div class="integration-card">
-    <div class="integration-header">
-        <span class="integration-name">unsplash</span>
-        <span class="integration-desc">background images</span>
-    </div>
-    <div class="integration-content stacked">
-        <input
-            id="unsplash-key"
-            type="password"
-            autocomplete="off"
-            data-1p-ignore
-            data-bwignore
-            data-lpignore="true"
-            data-form-type="other"
-            bind:value={settings.unsplashApiKey}
-            placeholder="api key"
-        />
-        <button
-            class="verify-link"
-            class:valid={unsplashVerified === true}
-            class:invalid={unsplashVerified === false}
-            onclick={verifyUnsplashKey}
-            disabled={verifyingUnsplash || !settings.unsplashApiKey}
-        >
-            {#if verifyingUnsplash}verifying...{:else if unsplashVerified === true}valid{:else if unsplashVerified === false}invalid{:else}verify{/if}
-        </button>
-    </div>
-</div>
-
-<style>
-    .integration-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        background: var(--bg-2);
-        border: 1px solid var(--bg-3);
-    }
-    .integration-header {
-        display: flex;
-        flex-direction: column;
-        gap: 0.125rem;
-    }
-    .integration-name {
-        color: var(--txt-1);
-    }
-    .integration-desc {
-        font-size: 0.8rem;
-        color: var(--txt-3);
-    }
-    .integration-email {
-        font-size: 0.8rem;
-        color: var(--txt-2);
-    }
-    .integration-content {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .integration-content.stacked {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 0.25rem;
-    }
-    .integration-content input {
-        width: 10rem;
-        padding: 0.375rem 0.5rem;
-        background: var(--bg-1);
-        border: 1px solid var(--bg-3);
-    }
-    .verify-link {
-        background: none;
-        border: none;
-        padding: 0;
-        font: inherit;
-        font-size: 0.7rem;
-        color: var(--txt-3);
-        cursor: pointer;
-    }
-    .verify-link:hover {
-        color: var(--txt-2);
-    }
-    .verify-link:disabled {
-        cursor: default;
-    }
-    .verify-link.valid {
-        color: #4ade80;
-    }
-    .verify-link.invalid {
-        color: var(--txt-err);
-    }
-</style>
+<IntegrationCard name="unsplash" description="background images" stacked>
+    <input
+        id="unsplash-key"
+        type="password"
+        autocomplete="off"
+        data-1p-ignore
+        data-bwignore
+        data-lpignore="true"
+        data-form-type="other"
+        bind:value={settings.unsplashApiKey}
+        placeholder="api key"
+    />
+    <VerifyButton
+        onclick={verifyUnsplashKey}
+        verifying={verifyingUnsplash}
+        verified={unsplashVerified}
+        disabled={!settings.unsplashApiKey}
+    />
+</IntegrationCard>

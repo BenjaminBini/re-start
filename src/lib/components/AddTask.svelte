@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { ParsedDate } from '../types'
+    import { HighlightInput } from './ui'
 
     let {
         value = $bindable(''),
@@ -21,101 +22,16 @@
         oninput?: (value: string) => void
     } = $props()
 
-    const handleSubmit = (event: SubmitEvent) => {
-        event.preventDefault()
-        onsubmit?.(event)
-    }
-
-    const handleInput = (event: Event) => {
-        oninput?.((event.target as HTMLInputElement).value)
-    }
-
-    const match = $derived(parsed?.match)
-    const before = $derived(match ? value.slice(0, match.start) : value)
-    const matchedText = $derived(
-        match ? value.slice(match.start, match.end) : ''
-    )
-    const after = $derived(match ? value.slice(match.end) : '')
-    const showPlaceholder = $derived(!value)
+    const match = $derived(parsed?.match ?? null)
 </script>
 
-<form class:show onsubmit={handleSubmit}>
-    <span class="dark">+</span>
-    <div class="input-shell">
-        <div class="input-overlay" aria-hidden="true">
-            {#if showPlaceholder}
-                <span class="placeholder">{placeholder}</span>
-            {:else if match}
-                <span>{before}</span><span class="date-highlight"
-                    >{matchedText}</span
-                ><span>{after}</span>
-            {:else}
-                <span>{value}</span>
-            {/if}
-        </div>
-        <input
-            class="add-task-input"
-            type="text"
-            bind:value
-            {placeholder}
-            oninput={handleInput}
-            disabled={disabled || loading}
-            aria-label="Add task"
-            autocomplete="off"
-        />
-    </div>
-</form>
-
-<style>
-    form {
-        opacity: 0;
-        display: flex;
-        gap: 1ch;
-        flex: 1;
-        align-items: center;
-    }
-    form:hover,
-    form:focus-within {
-        opacity: 1;
-    }
-    form.show {
-        opacity: 1;
-    }
-    .input-shell {
-        position: relative;
-        flex: 1;
-        min-width: 0;
-    }
-    .input-overlay {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        white-space: pre;
-        overflow: hidden;
-        font: inherit;
-        color: var(--txt-2);
-        line-height: 1.5;
-    }
-    .placeholder {
-        color: var(--txt-3);
-    }
-    .date-highlight {
-        color: var(--txt-1);
-    }
-    .add-task-input {
-        flex: 1;
-        background: transparent;
-        padding: 0;
-        border: none;
-        color: transparent;
-        caret-color: var(--txt-1);
-        height: 1.5rem;
-        width: 100%;
-    }
-    .add-task-input::placeholder {
-        color: transparent;
-    }
-    .add-task-input:disabled {
-        opacity: 0.5;
-    }
-</style>
+<HighlightInput
+    bind:value
+    {match}
+    {placeholder}
+    disabled={disabled || loading}
+    prefix="+"
+    {show}
+    {onsubmit}
+    {oninput}
+/>

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { Panel, Row, CalendarGrid } from './ui'
+
     interface MonthData {
         name: string
         year: number
@@ -6,7 +8,6 @@
         weeks: (number | null)[][]
     }
 
-    const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
     const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
                     'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -15,7 +16,6 @@
     let currentYear = $derived(now.getFullYear())
     let today = $derived(now.getDate())
 
-    // Update date at midnight
     $effect(() => {
         const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
         const timeout = setTimeout(() => {
@@ -29,7 +29,6 @@
         const lastDay = new Date(year, month + 1, 0)
         const daysInMonth = lastDay.getDate()
 
-        // Get day of week for first day (0 = Sunday, convert to Monday = 0)
         let startDay = firstDay.getDay() - 1
         if (startDay < 0) startDay = 6
 
@@ -37,13 +36,11 @@
         let week = new Array(7).fill(null)
         let dayNum = 1
 
-        // Fill first week
         for (let i = startDay; i < 7 && dayNum <= daysInMonth; i++) {
             week[i] = dayNum++
         }
         weeks.push(week)
 
-        // Fill remaining weeks
         while (dayNum <= daysInMonth) {
             week = new Array(7).fill(null)
             for (let i = 0; i < 7 && dayNum <= daysInMonth; i++) {
@@ -52,12 +49,7 @@
             weeks.push(week)
         }
 
-        return {
-            name: MONTHS[month],
-            year,
-            month,
-            weeks
-        }
+        return { name: MONTHS[month], year, month, weeks }
     }
 
     let thisMonth = $derived(getMonthData(currentYear, currentMonth))
@@ -66,130 +58,11 @@
         const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear
         return getMonthData(nextYear, nextMonth % 12)
     })
-
-    function isToday(monthData: MonthData, day: number | null): boolean {
-        return day === today &&
-               monthData.month === currentMonth &&
-               monthData.year === currentYear
-    }
 </script>
 
-<div class="panel-wrapper">
-    <span class="widget-label">calendar</span>
-    <div class="panel calendar-panel">
-        <div class="months">
-            <div class="month">
-                <div class="month-header">{thisMonth.name}</div>
-                <div class="calendar-grid">
-                    <div class="days-header">
-                        {#each DAYS as day}
-                            <span class="day-name">{day}</span>
-                        {/each}
-                    </div>
-                    <div class="weeks">
-                        {#each thisMonth.weeks as week}
-                            <div class="week">
-                                {#each week as day}
-                                    <span
-                                        class="day"
-                                        class:empty={day === null}
-                                        class:today={isToday(thisMonth, day)}
-                                    >
-                                        {day ?? ''}
-                                    </span>
-                                {/each}
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            </div>
-            <div class="month">
-                <div class="month-header">{nextMonthData().name}</div>
-                <div class="calendar-grid">
-                    <div class="days-header">
-                        {#each DAYS as day}
-                            <span class="day-name">{day}</span>
-                        {/each}
-                    </div>
-                    <div class="weeks">
-                        {#each nextMonthData().weeks as week}
-                            <div class="week">
-                                {#each week as day}
-                                    <span
-                                        class="day"
-                                        class:empty={day === null}
-                                    >
-                                        {day ?? ''}
-                                    </span>
-                                {/each}
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .panel-wrapper {
-        flex: 1;
-    }
-    .panel {
-        padding-bottom: 1.5rem;
-        mask-image: none !important;
-        -weebkit-mask-image: none !important;
-    }
-    .calendar-panel {
-        display: flex;
-        flex-direction: column;
-    }
-    .months {
-        display: flex;
-        gap: 2rem;
-    }
-    .month {
-        flex: 1;
-    }
-    .month-header {
-        color: var(--txt-2);
-        margin-bottom: 0.5rem;
-        font-size: 0.85rem;
-    }
-    .calendar-grid {
-        font-size: 0.8rem;
-    }
-    .days-header {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0;
-        color: var(--txt-2);
-        margin-bottom: 0.25rem;
-    }
-    .day-name {
-        text-align: center;
-        font-size: 0.75rem;
-    }
-    .weeks {
-        display: flex;
-        flex-direction: column;
-    }
-    .week {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0;
-    }
-    .day {
-        text-align: center;
-        padding: 0.15rem 0;
-        color: var(--txt-2);
-    }
-    .day.empty {
-        color: transparent;
-    }
-    .day.today {
-        color: var(--txt-1);
-        font-weight: 600;
-        background: var(--txt-4);
-    }
-</style>
+<Panel label="calendar" flex={1} noFade noPaddingBottom>
+    <Row gap="xl">
+        <CalendarGrid monthData={thisMonth} {currentMonth} {currentYear} {today} />
+        <CalendarGrid monthData={nextMonthData()} {currentMonth} {currentYear} {today} />
+    </Row>
+</Panel>

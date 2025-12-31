@@ -3,13 +3,15 @@
     import { createTaskBackend } from '../backends/index'
     import { settings } from '../settings-store.svelte'
     import { authState } from '../backends/google-auth'
-    import AddTask from './AddTask.svelte'
     import {
         parseSmartDate,
         stripDateMatch,
         formatTaskDue,
     } from '../date-matcher'
+    import { Panel, Text, Row, Link, ScrollList, Button } from './ui'
     import { RefreshCw } from 'lucide-svelte'
+    import TaskItem from './TaskItem.svelte'
+    import AddTask from './AddTask.svelte'
     import type TaskBackend from '../backends/task-backend'
     import type { EnrichedTask, ParsedDate, TaskBackendType } from '../types'
 
@@ -61,7 +63,6 @@
     })
 
     async function initializeAPI(backend: TaskBackendType, token: string, authStatus: AuthStatus, clearLocalData = false): Promise<void> {
-        // Check backend-specific requirements
         if (backend === 'todoist' && !token) {
             api = null
             tasks = []
@@ -78,7 +79,6 @@
             return
         }
 
-        // Clear error - we have valid config
         error = ''
 
         try {
@@ -93,18 +93,15 @@
                 tasks = []
             }
 
-            // Load cached data immediately (works for 'unknown' and 'authenticated')
             const cachedTasks = api.getTasks()
             if (cachedTasks.length > 0) {
                 tasks = cachedTasks
                 syncing = false
             }
 
-            // Sync in background if authenticated and cache is stale
             if (authStatus === 'authenticated' && (api.isCacheStale() || cachedTasks.length === 0)) {
                 loadTasks(cachedTasks.length === 0)
             } else if (authStatus === 'unknown') {
-                // Still waiting for auth check, just show cached data
                 syncing = false
             }
         } catch (err) {
@@ -157,7 +154,6 @@
     }
 
     async function toggleTask(taskId: string, checked: boolean): Promise<void> {
-        // Prevent concurrent toggles of the same task
         if (togglingTasks.has(taskId)) return
 
         try {
@@ -165,13 +161,7 @@
 
             tasks = tasks.map((task) =>
                 task.id === taskId
-                    ? {
-                          ...task,
-                          checked: checked,
-                          completed_at: checked
-                              ? new Date().toISOString()
-                              : null,
-                      }
+                    ? { ...task, checked, completed_at: checked ? new Date().toISOString() : null }
                     : task
             )
 
@@ -216,11 +206,7 @@
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         const dueDate = new Date(date)
-        const dueDateOnly = new Date(
-            dueDate.getFullYear(),
-            dueDate.getMonth(),
-            dueDate.getDate()
-        )
+        const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
 
         const diffTime = dueDateOnly.getTime() - today.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -234,36 +220,17 @@
         } else if (diffDays === 1) {
             dateString = 'tmrw'
         } else if (diffDays > 1 && diffDays < 7) {
-            dateString = dueDate
-                .toLocaleDateString('en-US', {
-                    weekday: 'short',
-                })
-                .toLowerCase()
+            dateString = dueDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
         } else {
-            dateString = dueDate
-                .toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                })
-                .toLowerCase()
+            dateString = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()
         }
 
         if (hasTime) {
             let timeString
             if (settings.timeFormat === '12hr') {
-                timeString = dueDate
-                    .toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                    })
-                    .toLowerCase()
+                timeString = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
             } else {
-                timeString = dueDate.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: false,
-                })
+                timeString = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false })
             }
             dateString += ` ${timeString}`
         }
@@ -271,8 +238,13 @@
         return dateString
     }
 
+    function getTaskLink(): string {
+        if (settings.taskBackend === 'todoist') return 'https://todoist.com/app'
+        if (settings.taskBackend === 'google-tasks') return 'https://tasks.google.com'
+        return ''
+    }
+
     onMount(() => {
-        // Subscribe to auth state changes
         unsubscribeAuth = authState.subscribe((state) => {
             console.log('[Tasks] Auth state update:', state.status)
             googleAuthStatus = state.status
@@ -288,165 +260,51 @@
     })
 </script>
 
-<div class="panel-wrapper">
-    <button
-        class="widget-label"
-        onclick={() => loadTasks(true)}
-        disabled={syncing}
-    >
-        {syncing ? 'syncing...' : 'tasks'}
-    </button>
-    <div class="panel">
-        {#if error}
-            <div class="error">{error}</div>
-        {:else}
-            <div class="widget-header">
-                {#if settings.taskBackend === 'todoist'}
-                    <a
-                        href="https://todoist.com/app"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <span class="bright">{taskCount}</span>
-                        task{taskCount === 1 ? '' : 's'}
-                    </a>
-                {:else if settings.taskBackend === 'google-tasks'}
-                    <a
-                        href="https://tasks.google.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <span class="bright">{taskCount}</span>
-                        task{taskCount === 1 ? '' : 's'}
-                    </a>
-                {:else}
-                    <span>
-                        <span class="bright">{taskCount}</span>
-                        task{taskCount === 1 ? '' : 's'}
-                    </span>
-                {/if}
-                <AddTask
-                    bind:value={newTaskContent}
-                    bind:parsed={parsedDate}
-                    disabled={addingTask}
-                    loading={addingTask}
-                    show={tasks.length === 0}
-                    onsubmit={addTask}
-                />
-            </div>
-
-            <br />
-            <div class="tasks">
-                <div class="tasks-list">
-                    {#each tasks as task}
-                        <div class="task" class:completed={task.checked}>
-                            <button
-                                onclick={() =>
-                                    toggleTask(task.id, !task.checked)}
-                                class="checkbox"
-                            >
-                                {#if task.checked}
-                                    [<span class="checkbox-x">x</span>]
-                                {:else}
-                                    [ ]
-                                {/if}
-                            </button>
-                            {#if task.project_name && task.project_name !== 'Inbox'}
-                                <span class="task-project"
-                                    >#{task.project_name}</span
-                                >
-                            {/if}
-                            <span class="task-title"
-                                >{task.content || '(no content)'}</span
-                            >
-                            {#if task.due_date}
-                                <span
-                                    class="task-due"
-                                    class:overdue={isTaskOverdue(task)}
-                                >
-                                    {formatDueDate(
-                                        task.due_date,
-                                        task.has_time
-                                    )}
-                                </span>
-                            {/if}
-                            <button
-                                type="button"
-                                class="task-delete"
-                                onclick={() => deleteTask(task.id)}
-                                aria-label="delete task"
-                                title="delete"
-                            >
-                                x
-                            </button>
-                        </div>
-                    {/each}
-                </div>
-            </div>
+<Panel
+    label={syncing ? 'syncing...' : 'tasks'}
+    clickableLabel
+    onLabelClick={() => loadTasks(true)}
+    flex={1}
+>
+    {#if error}
+        <Text color="error">{error}</Text>
+    {:else}
+        <Row gap="sm">
             {#if settings.taskBackend !== 'local'}
-                <button
-                    class="sync-btn"
-                    onclick={() => loadTasks(true)}
-                    disabled={syncing}
-                    title="sync"
-                >
-                    <RefreshCw size={14} class={syncing ? 'spinning' : ''} />
-                </button>
+                <Link href={getTaskLink()} target="_blank">
+                    <Text color="primary">{taskCount}</Text> task{taskCount === 1 ? '' : 's'}
+                </Link>
+            {:else}
+                <Text><Text color="primary">{taskCount}</Text> task{taskCount === 1 ? '' : 's'}</Text>
             {/if}
-        {/if}
-    </div>
-</div>
+            <AddTask
+                bind:value={newTaskContent}
+                bind:parsed={parsedDate}
+                disabled={addingTask}
+                loading={addingTask}
+                show={tasks.length === 0}
+                onsubmit={addTask}
+            />
+        </Row>
 
-<style>
-    .panel-wrapper {
-        flex: 1;
-    }
-    .widget-header {
-        display: flex;
-        gap: 1ch;
-    }
-    .tasks {
-        max-height: 15rem;
-        overflow: auto;
-        scrollbar-width: none;
-        scroll-snap-type: y proximity;
-    }
-    .task {
-        display: flex;
-        align-items: baseline;
-        gap: 1ch;
-        max-width: 40rem;
-        scroll-snap-align: start;
-    }
-    .task-title {
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-    .task-due {
-        color: var(--txt-3);
-    }
-    .task-project {
-        color: var(--txt-3);
-    }
-    .task-delete {
-        opacity: 0;
-        pointer-events: none;
-    }
-    .task:hover .task-delete,
-    .task:focus-within .task-delete {
-        opacity: 1;
-        pointer-events: auto;
-    }
-    .task.completed .task-title {
-        text-decoration: line-through;
-    }
-    .overdue {
-        color: var(--txt-err);
-    }
-    a:hover {
-        color: var(--txt-1);
-    }
-    .checkbox-x {
-        color: var(--txt-2);
-    }
-</style>
+        <br />
+        <ScrollList>
+            {#each tasks as task}
+                <TaskItem
+                    checked={task.checked}
+                    project={task.project_name}
+                    content={task.content}
+                    due={task.due_date ? formatDueDate(task.due_date, task.has_time) : null}
+                    overdue={isTaskOverdue(task)}
+                    onToggle={() => toggleTask(task.id, !task.checked)}
+                    onDelete={() => deleteTask(task.id)}
+                />
+            {/each}
+        </ScrollList>
+        {#if settings.taskBackend !== 'local'}
+            <Button variant="sync" onclick={() => loadTasks(true)} disabled={syncing} spinning={syncing} title="sync">
+                <RefreshCw size={14} />
+            </Button>
+        {/if}
+    {/if}
+</Panel>

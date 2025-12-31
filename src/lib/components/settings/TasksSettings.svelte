@@ -1,29 +1,21 @@
 <script lang="ts">
     import { settings } from '../../settings-store.svelte'
-    import RadioButton from '../RadioButton.svelte'
+    import { Checkbox, FormGroup, RadioGroup, RadioButton, Hint } from '../ui'
 </script>
 
-<div class="group">
-    <button class="checkbox-label" onclick={() => settings.showTasks = !settings.showTasks}>
-        <span class="checkbox">{settings.showTasks ? '[x]' : '[ ]'}</span>
-        enabled
-    </button>
-</div>
+<FormGroup>
+    <Checkbox bind:checked={settings.showTasks}>enabled</Checkbox>
+</FormGroup>
 
 {#if settings.showTasks}
-    <div class="group">
-        <div class="setting-label">source</div>
-        <div class="radio-group">
-            <RadioButton
-                bind:group={settings.taskBackend}
-                value="local"
-            >
+    <FormGroup label="source">
+        <RadioGroup>
+            <RadioButton bind:group={settings.taskBackend} value="local">
                 local
             </RadioButton>
-            <span
-                class="radio-wrapper"
-                class:disabled={!settings.todoistApiToken}
-                title={!settings.todoistApiToken ? 'add todoist api token in integrations' : ''}
+            <Hint
+                disabled={!settings.todoistApiToken}
+                hint="add todoist api token in integrations"
             >
                 <RadioButton
                     bind:group={settings.taskBackend}
@@ -32,11 +24,10 @@
                 >
                     todoist
                 </RadioButton>
-            </span>
-            <span
-                class="radio-wrapper"
-                class:disabled={!settings.googleTasksSignedIn}
-                title={!settings.googleTasksSignedIn ? 'sign in to google in integrations' : ''}
+            </Hint>
+            <Hint
+                disabled={!settings.googleTasksSignedIn}
+                hint="sign in to google in integrations"
             >
                 <RadioButton
                     bind:group={settings.taskBackend}
@@ -45,40 +36,7 @@
                 >
                     google
                 </RadioButton>
-            </span>
-        </div>
-    </div>
+            </Hint>
+        </RadioGroup>
+    </FormGroup>
 {/if}
-
-<style>
-    .group {
-        width: 100%;
-        margin-bottom: 1.5rem;
-    }
-    .setting-label {
-        display: block;
-        margin-bottom: 0.5rem;
-    }
-    .radio-group {
-        display: flex;
-        gap: 3ch;
-    }
-    .radio-wrapper.disabled {
-        cursor: help;
-    }
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-        background: none;
-        border: none;
-        padding: 0;
-        font: inherit;
-        color: inherit;
-        text-align: left;
-    }
-    .checkbox-label .checkbox {
-        color: var(--txt-2);
-    }
-</style>

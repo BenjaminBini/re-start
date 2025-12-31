@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import { Panel, Text } from './ui'
 
     let loadTime = $state(0)
     let latency = $state<number | null>(null)
@@ -91,18 +92,9 @@
     })
 </script>
 
-<div class="panel-wrapper">
-    <div class="panel-label">stats</div>
-    <div class="panel">
-        <div>load <span class="bright">{loadTime} ms</span></div>
-        <div>ping <span class="bright">{latency || '?'} ms</span></div>
-        <div>fps <span class="bright">{fps}</span></div>
-        <div>
-            <span class="bright">{viewportWidth}</span> x
-            <span class="bright">{viewportHeight}</span>
-        </div>
-    </div>
-</div>
-
-<style>
-</style>
+<Panel label="stats">
+    <Text as="div">load <Text color="primary">{loadTime} ms</Text></Text>
+    <Text as="div">ping <Text color="primary">{latency || '?'} ms</Text></Text>
+    <Text as="div">fps <Text color="primary">{fps}</Text></Text>
+    <Text as="div"><Text color="primary">{viewportWidth}</Text> x <Text color="primary">{viewportHeight}</Text></Text>
+</Panel>

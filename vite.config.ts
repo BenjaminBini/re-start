@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { svelteInspector } from '@sveltejs/vite-plugin-svelte-inspector'
 import fs from 'fs'
 
 interface Manifest {
@@ -54,7 +55,16 @@ function excludeManifest(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
     base: './',
-    plugins: [svelte(), injectThemeScript(), excludeManifest()],
+    plugins: [
+        svelte({
+            compilerOptions: {
+                dev: true,
+            },
+        }),
+        svelteInspector(),
+        injectThemeScript(),
+        excludeManifest(),
+    ],
     define: {
         __APP_VERSION__: JSON.stringify(manifest.version),
     },

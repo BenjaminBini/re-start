@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import { settings } from '../settings-store.svelte'
+    import { Panel, Text } from './ui'
 
     let currentHrs = $state('')
     let currentMin = $state('')
@@ -72,40 +73,12 @@
     })
 </script>
 
-<div class="panel-wrapper">
-    <div class="panel-label">datetime</div>
-    <div class="panel">
-        <div class="clock">
-            {currentHrs}<span class="colon">:</span>{currentMin}<span
-                class="colon">:</span
-            >{currentSec}
-            {#if settings.timeFormat === '12hr'}
-                <span class="ampm">{currentAmPm}</span>
-            {/if}
-        </div>
-        <div class="date">{currentDate}</div>
-    </div>
-</div>
-
-<style>
-    .panel-wrapper {
-        grid-column: span 2;
-    }
-    .clock {
-        font-size: 3.125rem;
-        font-weight: 300;
-        color: var(--txt-1);
-        line-height: 3.5rem;
-        margin: 0 0 0.5rem 0;
-    }
-    .colon,
-    .ampm {
-        color: var(--txt-2);
-    }
-    .date {
-        font-size: 1.5rem;
-        color: var(--txt-3);
-        line-height: 2rem;
-        margin: 0;
-    }
-</style>
+<Panel label="datetime" span={2}>
+    <Text as="div" size="3xl" color="primary" weight="light">
+        {currentHrs}<Text color="secondary">:</Text>{currentMin}<Text color="secondary">:</Text>{currentSec}
+        {#if settings.timeFormat === '12hr'}
+            <Text color="secondary">{currentAmPm}</Text>
+        {/if}
+    </Text>
+    <Text as="div" size="xl" color="muted">{currentDate}</Text>
+</Panel>
