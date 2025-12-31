@@ -1,5 +1,3 @@
-.auto-claude
-
 # Logs
 logs
 *.log
@@ -30,3 +28,5 @@ reference
 # Auto Claude data directory
 .auto-claude
 .worktrees
+.auto-claude-status
+.claude_settings.json
