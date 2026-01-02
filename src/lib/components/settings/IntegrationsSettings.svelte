@@ -13,14 +13,12 @@
     )
 
     let verifyingTodoist = $state(false)
-    let todoistVerified = $state<boolean | null>(
-        loadVerification('todoist', settings.todoistApiToken)
-    )
+    // eslint-disable-next-line svelte/prefer-writable-derived
+    let todoistVerified = $state<boolean | null>(null)
 
     let verifyingUnsplash = $state(false)
-    let unsplashVerified = $state<boolean | null>(
-        loadVerification('unsplash', settings.unsplashApiKey)
-    )
+    // eslint-disable-next-line svelte/prefer-writable-derived
+    let unsplashVerified = $state<boolean | null>(null)
 
     function loadVerification(key: string, token: string): boolean | null {
         if (!token) return null
@@ -30,7 +28,9 @@
                 const { token: storedToken, valid } = JSON.parse(stored)
                 if (storedToken === token) return valid
             }
-        } catch (e) {}
+        } catch (_e) {
+            // Ignore parsing errors - return null to indicate unknown state
+        }
         return null
     }
 
@@ -44,7 +44,9 @@
                 `verify_${key}`,
                 JSON.stringify({ token, valid })
             )
-        } catch (e) {}
+        } catch (_e) {
+            // Ignore localStorage errors (quota exceeded, etc.)
+        }
     }
 
     async function handleGoogleSignIn(): Promise<void> {

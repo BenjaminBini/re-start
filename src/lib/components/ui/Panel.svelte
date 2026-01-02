@@ -42,7 +42,11 @@
     {:else}
         <div class="panel-label">{label}</div>
     {/if}
-    <div class="panel" class:no-fade={noFade} class:no-padding-bottom={noPaddingBottom}>
+    <div
+        class="panel"
+        class:no-fade={noFade}
+        class:no-padding-bottom={noPaddingBottom}
+    >
         {@render children()}
     </div>
 </div>

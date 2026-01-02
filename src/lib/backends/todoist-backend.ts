@@ -67,7 +67,9 @@ class TodoistBackend extends TaskBackend {
         this.cacheExpiry = 5 * 60 * 1000 // 5 minutes
 
         this.syncToken = localStorage.getItem(this.syncTokenKey) || '*'
-        this.data = JSON.parse(localStorage.getItem(this.dataKey) || '{}') as TodoistData
+        this.data = JSON.parse(
+            localStorage.getItem(this.dataKey) || '{}'
+        ) as TodoistData
         if (!this.data.items) this.data.items = []
         if (!this.data.labels) this.data.labels = []
         if (!this.data.projects) this.data.projects = []
@@ -97,7 +99,7 @@ class TodoistBackend extends TaskBackend {
                 throw new Error(`todoist fetch failed: ${response.status}`)
             }
 
-            const data = await response.json() as TodoistSyncResponse
+            const data = (await response.json()) as TodoistSyncResponse
 
             this.updateLocalData(data)
 
@@ -139,26 +141,29 @@ class TodoistBackend extends TaskBackend {
     /**
      * Generic merge function for all data types
      */
-    private mergeData(type: 'items' | 'labels' | 'projects', newData?: Array<TodoistItem | TodoistLabel | TodoistProject>): void {
+    private mergeData(
+        type: 'items' | 'labels' | 'projects',
+        newData?: Array<TodoistItem | TodoistLabel | TodoistProject>
+    ): void {
         if (!newData) return
         if (!this.data[type]) {
-            (this.data[type] as unknown[]) = []
+            ;(this.data[type] as unknown[]) = []
         }
 
         newData.forEach((newItem) => {
             const isDeleted = 'is_deleted' in newItem && newItem.is_deleted
             if (isDeleted) {
-                (this.data[type] as Array<{ id: string }>) = this.data[type].filter(
-                    (item) => item.id !== newItem.id
-                )
+                ;(this.data[type] as Array<{ id: string }>) = this.data[
+                    type
+                ].filter((item) => item.id !== newItem.id)
             } else {
                 const existingIndex = this.data[type].findIndex(
                     (item) => item.id === newItem.id
                 )
                 if (existingIndex >= 0) {
-                    (this.data[type][existingIndex] as unknown) = newItem
+                    ;(this.data[type][existingIndex] as unknown) = newItem
                 } else {
-                    (this.data[type] as unknown[]).push(newItem)
+                    ;(this.data[type] as unknown[]).push(newItem)
                 }
             }
         })
@@ -306,7 +311,9 @@ class TodoistBackend extends TaskBackend {
     /**
      * Execute sync commands
      */
-    private async executeCommands(commands: TodoistCommand[]): Promise<unknown> {
+    private async executeCommands(
+        commands: TodoistCommand[]
+    ): Promise<unknown> {
         const formData = new FormData()
         formData.append('commands', JSON.stringify(commands))
 

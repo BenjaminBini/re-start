@@ -12,7 +12,7 @@ interface BackendStatus {
 }
 
 export const backendStatus: BackendStatus = $state({
-    isOnline: null
+    isOnline: null,
 })
 
 /**
@@ -22,7 +22,10 @@ export const backendStatus: BackendStatus = $state({
 export async function checkBackendHealth(): Promise<boolean> {
     // Use cached result if checked recently
     const now = Date.now()
-    if (backendStatus.isOnline !== null && now - lastBackendCheck < HEALTH_CHECK_INTERVAL_MS) {
+    if (
+        backendStatus.isOnline !== null &&
+        now - lastBackendCheck < HEALTH_CHECK_INTERVAL_MS
+    ) {
         return backendStatus.isOnline
     }
 
@@ -33,14 +36,17 @@ export async function checkBackendHealth(): Promise<boolean> {
 
         const response = await fetch(`${API_URL}/api/health`, {
             method: 'GET',
-            signal: controller.signal
+            signal: controller.signal,
         })
 
         clearTimeout(timeoutId)
         lastBackendCheck = now
 
         backendStatus.isOnline = response.ok
-        console.log('[Backend] Status:', backendStatus.isOnline ? 'online' : 'offline')
+        console.log(
+            '[Backend] Status:',
+            backendStatus.isOnline ? 'online' : 'offline'
+        )
         return backendStatus.isOnline
     } catch (error) {
         console.log('[Backend] Health check failed:', (error as Error).message)

@@ -300,7 +300,13 @@ const CASES: TestCase[] = [
     },
 ]
 
-function formatExpectedDate({ year, month, day, hour, minute }: DateDue): string {
+function formatExpectedDate({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+}: DateDue): string {
     const pad = (n: number): string => String(n).padStart(2, '0')
     const dateStr = `${year}-${pad(month)}-${pad(day)}`
     if (hour !== undefined) {

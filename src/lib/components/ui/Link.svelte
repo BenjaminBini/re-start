@@ -12,7 +12,12 @@
     } = $props()
 </script>
 
-<a {href} {target} rel={target === '_blank' ? 'noopener noreferrer' : undefined} class="link">
+<a
+    {href}
+    {target}
+    rel={target === '_blank' ? 'noopener noreferrer' : undefined}
+    class="link"
+>
     {@render children()}
 </a>
 

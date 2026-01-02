@@ -59,8 +59,11 @@ class GoogleTasksBackend extends TaskBackend {
         googleAuth.migrateStorageKeys()
 
         const storedData = localStorage.getItem(this.dataKey)
-        this.data = storedData ? JSON.parse(storedData) as GoogleTasksData : { tasklists: [], tasks: [] }
-        this.defaultTasklistId = localStorage.getItem(this.tasklistIdKey) ?? '@default'
+        this.data = storedData
+            ? (JSON.parse(storedData) as GoogleTasksData)
+            : { tasklists: [], tasks: [] }
+        this.defaultTasklistId =
+            localStorage.getItem(this.tasklistIdKey) ?? '@default'
     }
 
     /**
@@ -103,7 +106,10 @@ class GoogleTasksBackend extends TaskBackend {
      * Make an authenticated API request with auto-refresh
      * Delegates to shared googleAuth.apiRequest
      */
-    private async apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    private async apiRequest<T>(
+        endpoint: string,
+        options: RequestInit = {}
+    ): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`
         return googleAuth.apiRequest<T>(url, {
             ...options,
@@ -117,22 +123,30 @@ class GoogleTasksBackend extends TaskBackend {
     /**
      * Sync tasks from Google Tasks API
      */
-    async sync(resourceTypes: string[] = ['tasklists', 'tasks']): Promise<GoogleTasksData> {
+    async sync(
+        resourceTypes: string[] = ['tasklists', 'tasks']
+    ): Promise<GoogleTasksData> {
         if (!this.getIsSignedIn()) {
             throw new Error('Not signed in to Google account')
         }
 
         try {
             if (resourceTypes.includes('tasklists')) {
-                const data = await this.apiRequest<GoogleTasklistsResponse>('/users/@me/lists?maxResults=20')
+                const data = await this.apiRequest<GoogleTasklistsResponse>(
+                    '/users/@me/lists?maxResults=20'
+                )
                 this.data.tasklists = data.items || []
 
                 const hasValidTasklist = this.data.tasklists.some(
                     (tl) => tl.id === this.defaultTasklistId
                 )
                 if (!this.defaultTasklistId || !hasValidTasklist) {
-                    this.defaultTasklistId = this.data.tasklists[0]?.id ?? '@default'
-                    localStorage.setItem(this.tasklistIdKey, this.defaultTasklistId)
+                    this.defaultTasklistId =
+                        this.data.tasklists[0]?.id ?? '@default'
+                    localStorage.setItem(
+                        this.tasklistIdKey,
+                        this.defaultTasklistId
+                    )
                 }
             }
 
@@ -143,9 +157,10 @@ class GoogleTasksBackend extends TaskBackend {
                     this.data.tasks = []
                 } else {
                     const taskPromises = tasklists.map(async (tasklist) => {
-                        const data = await this.apiRequest<GoogleTasksListResponse>(
-                            `/lists/${tasklist.id}/tasks?showCompleted=true&showHidden=true&maxResults=100`
-                        )
+                        const data =
+                            await this.apiRequest<GoogleTasksListResponse>(
+                                `/lists/${tasklist.id}/tasks?showCompleted=true&showHidden=true&maxResults=100`
+                            )
                         return (data.items || []).map((task) => ({
                             ...task,
                             tasklistId: tasklist.id,
@@ -217,7 +232,9 @@ class GoogleTasksBackend extends TaskBackend {
      * Get tasklist name by ID
      */
     getTasklistName(tasklistId: string): string {
-        return this.data.tasklists?.find((tl) => tl.id === tasklistId)?.title ?? ''
+        return (
+            this.data.tasklists?.find((tl) => tl.id === tasklistId)?.title ?? ''
+        )
     }
 
     /**

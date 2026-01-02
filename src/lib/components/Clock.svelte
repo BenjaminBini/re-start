@@ -75,7 +75,9 @@
 
 <Panel label="datetime" span={2}>
     <Text as="div" size="3xl" color="primary" weight="light">
-        {currentHrs}<Text color="secondary">:</Text>{currentMin}<Text color="secondary">:</Text>{currentSec}
+        {currentHrs}<Text color="secondary">:</Text>{currentMin}<Text
+            color="secondary">:</Text
+        >{currentSec}
         {#if settings.timeFormat === '12hr'}
             <Text color="secondary">{currentAmPm}</Text>
         {/if}

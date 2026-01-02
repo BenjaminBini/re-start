@@ -29,12 +29,12 @@
     }
 
     $effect(() => {
-        const lat = settings.latitude
-        const lon = settings.longitude
-        const locationMode = settings.locationMode
-        const tempUnit = settings.tempUnit
-        const speedUnit = settings.speedUnit
-        const timeFormat = settings.timeFormat
+        const _lat = settings.latitude
+        const _lon = settings.longitude
+        const _locationMode = settings.locationMode
+        const _tempUnit = settings.tempUnit
+        const _speedUnit = settings.speedUnit
+        const _timeFormat = settings.timeFormat
 
         if (untrack(() => initialLoad)) {
             initialLoad = false
@@ -45,7 +45,10 @@
         loadWeather(true)
     })
 
-    async function getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
+    async function getCurrentLocation(): Promise<{
+        latitude: number
+        longitude: number
+    }> {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
                 reject(new Error('geolocation not supported'))
@@ -55,8 +58,10 @@
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     resolve({
-                        latitude: Math.round(position.coords.latitude * 100) / 100,
-                        longitude: Math.round(position.coords.longitude * 100) / 100,
+                        latitude:
+                            Math.round(position.coords.latitude * 100) / 100,
+                        longitude:
+                            Math.round(position.coords.longitude * 100) / 100,
                     })
                 },
                 (err) => reject(err),
@@ -65,7 +70,10 @@
         })
     }
 
-    async function getCoordinates(): Promise<{ latitude: number; longitude: number }> {
+    async function getCoordinates(): Promise<{
+        latitude: number
+        longitude: number
+    }> {
         if (settings.locationMode === 'auto') {
             try {
                 return await getCurrentLocation()
@@ -100,7 +108,12 @@
             }
 
             if (api.isCacheStale(latitude, longitude) || !cachedData) {
-                await api.sync(latitude, longitude, settings.tempUnit, settings.speedUnit)
+                await api.sync(
+                    latitude,
+                    longitude,
+                    settings.tempUnit,
+                    settings.speedUnit
+                )
                 const freshData = api.getWeather(settings.timeFormat)
                 current = freshData.current
                 forecast = freshData.forecast
@@ -139,38 +152,62 @@
     {#if error}
         <Text color="error">{error}</Text>
     {:else if current}
-        <Text as="div" size="2xl" color="primary" weight="light">{current.temperature_2m}°</Text>
+        <Text as="div" size="2xl" color="primary" weight="light"
+            >{current.temperature_2m}°</Text
+        >
         <Text as="div" size="lg" color="muted">{current.description}</Text>
         <br />
         <Row gap="lg">
             <Column>
-                <Text>humi <Text color="primary">{current.relative_humidity_2m}%</Text></Text>
-                <Text>prec <Text color="primary">{current.precipitation_probability}%</Text></Text>
+                <Text
+                    >humi <Text color="primary"
+                        >{current.relative_humidity_2m}%</Text
+                    ></Text
+                >
+                <Text
+                    >prec <Text color="primary"
+                        >{current.precipitation_probability}%</Text
+                    ></Text
+                >
             </Column>
             <Column>
-                <Text>wind <Text color="primary">{current.wind_speed_10m} {settings.speedUnit}</Text></Text>
-                <Text>feel <Text color="primary">{current.apparent_temperature}°</Text></Text>
+                <Text
+                    >wind <Text color="primary"
+                        >{current.wind_speed_10m} {settings.speedUnit}</Text
+                    ></Text
+                >
+                <Text
+                    >feel <Text color="primary"
+                        >{current.apparent_temperature}°</Text
+                    ></Text
+                >
             </Column>
         </Row>
         <br />
         <Row gap="lg">
             <Column>
-                {#each forecast as f}
+                {#each forecast as f (f.time)}
                     <Text as="div">{f.formattedTime}</Text>
                 {/each}
             </Column>
             <Column>
-                {#each forecast as f}
+                {#each forecast as f (f.time)}
                     <Text as="div" color="primary">{f.temperature}°</Text>
                 {/each}
             </Column>
             <Column>
-                {#each forecast as f}
+                {#each forecast as f (f.time)}
                     <Text as="div" color="muted">{f.description}</Text>
                 {/each}
             </Column>
         </Row>
-        <Button variant="sync" onclick={() => loadWeather(true)} disabled={syncing} spinning={syncing} title="sync">
+        <Button
+            variant="sync"
+            onclick={() => loadWeather(true)}
+            disabled={syncing}
+            spinning={syncing}
+            title="sync"
+        >
             <RefreshCw size={14} />
         </Button>
     {/if}

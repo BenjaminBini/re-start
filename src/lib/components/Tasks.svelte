@@ -14,7 +14,7 @@
     import TaskItem from './TaskItem.svelte'
     import AddTask from './AddTask.svelte'
     import type TaskBackend from '../backends/task-backend'
-    import type { EnrichedTask, ParsedDate, TaskBackendType } from '../types'
+    import type { EnrichedTask, TaskBackendType } from '../types'
 
     let api: TaskBackend | null = null
     let tasks = $state<EnrichedTask[]>([])
@@ -25,7 +25,11 @@
     let taskCount = $derived(tasks.filter((task) => !task.checked).length)
     let newTaskContent = $state('')
     let addingTask = $state(false)
-    let parsedDate = $state<ParsedDate | null>(null)
+    let parsedDate = $derived(
+        parseSmartDate(newTaskContent, {
+            dateFormat: settings.dateFormat,
+        })
+    )
     let togglingTasks = $state(new Set<string>())
     let syncInProgress = false
 
@@ -53,13 +57,12 @@
         initializeAPI(backend, token, authStatus, tokenChanged)
     })
 
-    $effect(() => {
-        parsedDate = parseSmartDate(newTaskContent, {
-            dateFormat: settings.dateFormat,
-        })
-    })
-
-    async function initializeAPI(backend: TaskBackendType, token: string, authStatus: AuthStatus, clearLocalData = false): Promise<void> {
+    async function initializeAPI(
+        backend: TaskBackendType,
+        token: string,
+        authStatus: AuthStatus,
+        clearLocalData = false
+    ): Promise<void> {
         if (backend === 'todoist' && !token) {
             api = null
             tasks = []
@@ -96,7 +99,10 @@
                 syncing = false
             }
 
-            if (authStatus === 'authenticated' && (api.isCacheStale() || cachedTasks.length === 0)) {
+            if (
+                authStatus === 'authenticated' &&
+                (api.isCacheStale() || cachedTasks.length === 0)
+            ) {
                 loadTasks(cachedTasks.length === 0)
             } else if (authStatus === 'unknown') {
                 syncing = false
@@ -158,7 +164,13 @@
 
             tasks = tasks.map((task) =>
                 task.id === taskId
-                    ? { ...task, checked, completed_at: checked ? new Date().toISOString() : null }
+                    ? {
+                          ...task,
+                          checked,
+                          completed_at: checked
+                              ? new Date().toISOString()
+                              : null,
+                      }
                     : task
             )
 
@@ -203,7 +215,11 @@
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         const dueDate = new Date(date)
-        const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+        const dueDateOnly = new Date(
+            dueDate.getFullYear(),
+            dueDate.getMonth(),
+            dueDate.getDate()
+        )
 
         const diffTime = dueDateOnly.getTime() - today.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -217,17 +233,31 @@
         } else if (diffDays === 1) {
             dateString = 'tmrw'
         } else if (diffDays > 1 && diffDays < 7) {
-            dateString = dueDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
+            dateString = dueDate
+                .toLocaleDateString('en-US', { weekday: 'short' })
+                .toLowerCase()
         } else {
-            dateString = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()
+            dateString = dueDate
+                .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                .toLowerCase()
         }
 
         if (hasTime) {
             let timeString
             if (settings.timeFormat === '12hr') {
-                timeString = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
+                timeString = dueDate
+                    .toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                    })
+                    .toLowerCase()
             } else {
-                timeString = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false })
+                timeString = dueDate.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: false,
+                })
             }
             dateString += ` ${timeString}`
         }
@@ -237,12 +267,17 @@
 
     function getTaskLink(): string {
         if (settings.taskBackend === 'todoist') return 'https://todoist.com/app'
-        if (settings.taskBackend === 'google-tasks') return 'https://tasks.google.com'
+        if (settings.taskBackend === 'google-tasks')
+            return 'https://tasks.google.com'
         return ''
     }
 
     onMount(() => {
-        initializeAPI(settings.taskBackend, settings.todoistApiToken, $authStore.status)
+        initializeAPI(
+            settings.taskBackend,
+            settings.todoistApiToken,
+            $authStore.status
+        )
         document.addEventListener('visibilitychange', handleVisibilityChange)
     })
 
@@ -263,10 +298,18 @@
         <Row gap="sm">
             {#if settings.taskBackend !== 'local'}
                 <Link href={getTaskLink()} target="_blank">
-                    <Text color="primary">{taskCount}</Text> task{taskCount === 1 ? '' : 's'}
+                    <Text color="primary">{taskCount}</Text> task{taskCount ===
+                    1
+                        ? ''
+                        : 's'}
                 </Link>
             {:else}
-                <Text><Text color="primary">{taskCount}</Text> task{taskCount === 1 ? '' : 's'}</Text>
+                <Text
+                    ><Text color="primary">{taskCount}</Text> task{taskCount ===
+                    1
+                        ? ''
+                        : 's'}</Text
+                >
             {/if}
             <AddTask
                 bind:value={newTaskContent}
@@ -280,12 +323,14 @@
 
         <br />
         <ScrollList>
-            {#each tasks as task}
+            {#each tasks as task (task.id)}
                 <TaskItem
                     checked={task.checked}
                     project={task.project_name}
                     content={task.content}
-                    due={task.due_date ? formatDueDate(task.due_date, task.has_time) : null}
+                    due={task.due_date
+                        ? formatDueDate(task.due_date, task.has_time)
+                        : null}
                     overdue={isTaskOverdue(task)}
                     onToggle={() => toggleTask(task.id, !task.checked)}
                     onDelete={() => deleteTask(task.id)}
@@ -293,7 +338,13 @@
             {/each}
         </ScrollList>
         {#if settings.taskBackend !== 'local'}
-            <Button variant="sync" onclick={() => loadTasks(true)} disabled={syncing} spinning={syncing} title="sync">
+            <Button
+                variant="sync"
+                onclick={() => loadTasks(true)}
+                disabled={syncing}
+                spinning={syncing}
+                title="sync"
+            >
                 <RefreshCw size={14} />
             </Button>
         {/if}

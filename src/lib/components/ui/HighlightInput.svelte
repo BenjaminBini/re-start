@@ -34,7 +34,9 @@
     }
 
     const before = $derived(match ? value.slice(0, match.start) : value)
-    const matchedText = $derived(match ? value.slice(match.start, match.end) : '')
+    const matchedText = $derived(
+        match ? value.slice(match.start, match.end) : ''
+    )
     const after = $derived(match ? value.slice(match.end) : '')
     const showPlaceholder = $derived(!value)
 </script>
@@ -48,7 +50,8 @@
             {#if showPlaceholder}
                 <span class="placeholder">{placeholder}</span>
             {:else if match}
-                <span>{before}</span><span class="highlight">{matchedText}</span><span>{after}</span>
+                <span>{before}</span><span class="highlight">{matchedText}</span
+                ><span>{after}</span>
             {:else}
                 <span>{value}</span>
             {/if}

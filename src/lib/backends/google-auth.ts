@@ -81,10 +81,13 @@ async function validateToken(token: string): Promise<boolean> {
 
     try {
         log('Validating token with Google API...')
-        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + token)
+        const response = await fetch(
+            'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' +
+                token
+        )
 
         if (response.ok) {
-            const data = await response.json() as TokenInfo
+            const data = (await response.json()) as TokenInfo
             // Store granted scopes
             if (data.scope) {
                 localStorage.setItem(SCOPES_KEY, data.scope)
@@ -94,7 +97,7 @@ async function validateToken(token: string): Promise<boolean> {
             }
             return true
         } else {
-            const data = await response.json() as TokenInfo
+            const data = (await response.json()) as TokenInfo
             logWarn('Token validation failed:', data.error || response.status)
             return false
         }
@@ -179,9 +182,12 @@ export async function refreshScopes(): Promise<boolean> {
     if (!token) return false
 
     try {
-        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + token)
+        const response = await fetch(
+            'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' +
+                token
+        )
         if (response.ok) {
-            const data = await response.json() as TokenInfo
+            const data = (await response.json()) as TokenInfo
             if (data.scope) {
                 localStorage.setItem(SCOPES_KEY, data.scope)
                 return true
@@ -203,7 +209,11 @@ export function isSignedIn(): boolean {
 /**
  * Store tokens in localStorage
  */
-function storeTokens(accessToken: string, expiresIn: string | null, email: string | null = null): void {
+function storeTokens(
+    accessToken: string,
+    expiresIn: string | null,
+    email: string | null = null
+): void {
     localStorage.setItem(TOKEN_KEY, accessToken)
 
     const expiresInMs = (parseInt(expiresIn || '3600', 10) || 3600) * 1000
@@ -218,7 +228,7 @@ function storeTokens(accessToken: string, expiresIn: string | null, email: strin
     log('Tokens stored', {
         email,
         expiresIn: `${expiresInMin} minutes`,
-        expiryTime: new Date(expiryTime).toISOString()
+        expiryTime: new Date(expiryTime).toISOString(),
     })
 
     setAuthenticated(email)
@@ -298,20 +308,23 @@ async function refreshToken(): Promise<string> {
     const response = await fetch(`${API_URL}/api/auth/google/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId })
+        body: JSON.stringify({ user_id: userId }),
     })
 
     if (!response.ok) {
-        const error = await response.json() as RefreshResponse
+        const error = (await response.json()) as RefreshResponse
         logError('Token refresh failed:', error.error)
-        if (error.error === 'not_authenticated' || error.error === 'refresh_token_expired') {
+        if (
+            error.error === 'not_authenticated' ||
+            error.error === 'refresh_token_expired'
+        ) {
             clearTokens()
             throw new Error('Session expired. Please sign in again.')
         }
         throw new Error(error.error || 'Token refresh failed')
     }
 
-    const data = await response.json() as RefreshResponse
+    const data = (await response.json()) as RefreshResponse
     log('Token refresh successful')
     storeTokens(data.access_token, data.expires_in, data.email)
     return data.access_token
@@ -328,7 +341,7 @@ export async function ensureValidToken(): Promise<string> {
     log('ensureValidToken check:', {
         hasToken: !!token,
         isExpired: expired,
-        needsRefresh: needs
+        needsRefresh: needs,
     })
 
     // If no token, try to refresh from backend
@@ -336,7 +349,7 @@ export async function ensureValidToken(): Promise<string> {
         log('No token found, attempting refresh')
         try {
             return await refreshToken()
-        } catch (error) {
+        } catch (_error) {
             logError('No token and refresh failed')
             throw new Error('Not signed in')
         }
@@ -350,7 +363,9 @@ export async function ensureValidToken(): Promise<string> {
         } catch (error) {
             // If refresh fails but token is still valid, use it
             if (!expired) {
-                logWarn('Refresh failed but token still valid, using existing token')
+                logWarn(
+                    'Refresh failed but token still valid, using existing token'
+                )
                 return token
             }
             logError('Refresh failed and token expired')
@@ -369,15 +384,18 @@ export async function ensureValidToken(): Promise<string> {
  * @param options - Fetch options (method, headers, body, etc.)
  * @returns Parsed JSON response typed as T
  */
-export async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(
+    url: string,
+    options: RequestInit = {}
+): Promise<T> {
     const token = await ensureValidToken()
 
     const response = await fetch(url, {
         ...options,
         headers: {
             ...options.headers,
-            'Authorization': `Bearer ${token}`
-        }
+            Authorization: `Bearer ${token}`,
+        },
     })
 
     if (response.status === 401) {
@@ -388,7 +406,7 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
-    return await response.json() as T
+    return (await response.json()) as T
 }
 
 interface AuthUrlResponse {
@@ -402,13 +420,15 @@ export async function signIn(): Promise<void> {
     const userId = getUserId()
     log('Starting sign in flow for user:', userId)
 
-    const response = await fetch(`${API_URL}/api/auth/google/url?user_id=${userId}`)
+    const response = await fetch(
+        `${API_URL}/api/auth/google/url?user_id=${userId}`
+    )
     if (!response.ok) {
         logError('Failed to get auth URL')
         throw new Error('Failed to get auth URL')
     }
 
-    const data = await response.json() as AuthUrlResponse
+    const data = (await response.json()) as AuthUrlResponse
     log('Redirecting to Google OAuth:', data.url.substring(0, 80) + '...')
     window.location.href = data.url
 }
@@ -424,7 +444,7 @@ export async function signOut(): Promise<void> {
         await fetch(`${API_URL}/api/auth/google/logout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
+            body: JSON.stringify({ user_id: userId }),
         })
         log('Backend logout successful')
     } catch (e) {
@@ -454,7 +474,7 @@ export async function tryRestoreSession(): Promise<boolean> {
     const expired = isTokenExpiredInternal()
 
     // If token exists and not expired, validate it with Google
-    const tokenValid = token && !expired && await validateToken(token)
+    const tokenValid = token && !expired && (await validateToken(token))
 
     if (!tokenValid) {
         // Token missing, expired, or invalid - try to refresh

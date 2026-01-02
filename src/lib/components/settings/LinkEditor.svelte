@@ -16,7 +16,7 @@
     }
 
     // Sync changes from itemsWithId back to links
-    function handleItemsChange(newItems: Array<Link & { id: number }>): void {
+    function _handleItemsChange(newItems: Array<Link & { id: number }>): void {
         links = newItems.map(({ title, url }) => ({ title, url }))
     }
 
@@ -29,12 +29,8 @@
     })
 </script>
 
-<DraggableList
-    items={itemsWithId}
-    label="edit links"
-    onAdd={addLink}
->
-    {#snippet itemContent(item, index, removeItem)}
+<DraggableList items={itemsWithId} label="edit links" onAdd={addLink}>
+    {#snippet itemContent(_item, index, removeItem)}
         <Row gap="sm" flex={1}>
             <TextInput
                 bind:value={links[index].title}
@@ -46,7 +42,11 @@
                 placeholder="https://example.com"
                 type="url"
             />
-            <Button variant="delete" onclick={() => removeItem(index)} title="remove">x</Button>
+            <Button
+                variant="delete"
+                onclick={() => removeItem(index)}
+                title="remove">x</Button
+            >
         </Row>
     {/snippet}
 </DraggableList>

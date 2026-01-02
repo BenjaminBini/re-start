@@ -1,6 +1,10 @@
 import * as googleAuth from './google-auth'
 import { generateUUID } from '../uuid'
-import type { CalendarBackendConfig, CalendarEvent, GoogleCalendar } from '../types'
+import type {
+    CalendarBackendConfig,
+    CalendarEvent,
+    GoogleCalendar,
+} from '../types'
 
 interface GoogleCalendarItem {
     id: string
@@ -69,7 +73,9 @@ class GoogleCalendarBackend {
         googleAuth.migrateStorageKeys()
 
         const storedData = localStorage.getItem(this.dataKey)
-        this.data = storedData ? JSON.parse(storedData) as GoogleCalendarData : {}
+        this.data = storedData
+            ? (JSON.parse(storedData) as GoogleCalendarData)
+            : {}
     }
 
     /**
@@ -91,7 +97,10 @@ class GoogleCalendarBackend {
      * Make an authenticated API request with auto-refresh
      * Delegates to shared googleAuth.apiRequest
      */
-    private async apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    private async apiRequest<T>(
+        endpoint: string,
+        options: RequestInit = {}
+    ): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`
         return googleAuth.apiRequest<T>(url, {
             ...options,
@@ -107,32 +116,50 @@ class GoogleCalendarBackend {
      */
     private getTodayBounds(): { timeMin: string; timeMax: string } {
         const now = new Date()
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        const startOfDay = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+        )
+        const endOfDay = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            23,
+            59,
+            59,
+            999
+        )
 
         return {
             timeMin: startOfDay.toISOString(),
-            timeMax: endOfDay.toISOString()
+            timeMax: endOfDay.toISOString(),
         }
     }
 
     /**
      * Sync calendar events from Google Calendar API
      */
-    async sync(selectedCalendarIds: string[] = []): Promise<GoogleCalendarData> {
+    async sync(
+        selectedCalendarIds: string[] = []
+    ): Promise<GoogleCalendarData> {
         if (!this.getIsSignedIn()) {
             throw new Error('Not signed in to Google account')
         }
 
         try {
             // First get list of calendars
-            const calendarsData = await this.apiRequest<CalendarListResponse>('/users/me/calendarList?maxResults=50')
-            this.data.calendars = (calendarsData.items || []).filter(cal => cal.selected !== false)
+            const calendarsData = await this.apiRequest<CalendarListResponse>(
+                '/users/me/calendarList?maxResults=50'
+            )
+            this.data.calendars = (calendarsData.items || []).filter(
+                (cal) => cal.selected !== false
+            )
 
             // Filter to selected calendars if specified
             let calendarsToSync = this.data.calendars
             if (selectedCalendarIds && selectedCalendarIds.length > 0) {
-                calendarsToSync = this.data.calendars.filter(cal =>
+                calendarsToSync = this.data.calendars.filter((cal) =>
                     selectedCalendarIds.includes(cal.id)
                 )
             }
@@ -142,23 +169,27 @@ class GoogleCalendarBackend {
 
             const eventPromises = calendarsToSync.map(async (calendar) => {
                 try {
-                    const eventsData = await this.apiRequest<EventsListResponse>(
-                        `/calendars/${encodeURIComponent(calendar.id)}/events?` +
-                        `timeMin=${encodeURIComponent(timeMin)}&` +
-                        `timeMax=${encodeURIComponent(timeMax)}&` +
-                        `singleEvents=true&` +
-                        `orderBy=startTime&` +
-                        `maxResults=50`
-                    )
+                    const eventsData =
+                        await this.apiRequest<EventsListResponse>(
+                            `/calendars/${encodeURIComponent(calendar.id)}/events?` +
+                                `timeMin=${encodeURIComponent(timeMin)}&` +
+                                `timeMax=${encodeURIComponent(timeMax)}&` +
+                                `singleEvents=true&` +
+                                `orderBy=startTime&` +
+                                `maxResults=50`
+                        )
 
-                    return (eventsData.items || []).map(event => ({
+                    return (eventsData.items || []).map((event) => ({
                         ...event,
                         calendarId: calendar.id,
                         calendarName: calendar.summary,
-                        calendarColor: calendar.backgroundColor
+                        calendarColor: calendar.backgroundColor,
                     }))
                 } catch (err) {
-                    console.warn(`Failed to fetch events from calendar "${calendar.summary}":`, err)
+                    console.warn(
+                        `Failed to fetch events from calendar "${calendar.summary}":`,
+                        err
+                    )
                     return []
                 }
             })
@@ -184,12 +215,12 @@ class GoogleCalendarBackend {
         const now = new Date()
 
         return this.data.events
-            .filter(event => {
+            .filter((event) => {
                 // Filter out cancelled events
                 if (event.status === 'cancelled') return false
                 return true
             })
-            .map(event => {
+            .map((event) => {
                 const isAllDay = !!event.start?.date && !event.start?.dateTime
 
                 let startTime: Date
@@ -219,7 +250,7 @@ class GoogleCalendarBackend {
                     isOngoing,
                     calendarName: event.calendarName || '',
                     calendarColor: event.calendarColor || '',
-                    htmlLink: event.htmlLink || ''
+                    htmlLink: event.htmlLink || '',
                 }
             })
             .sort((a, b) => {
@@ -244,13 +275,17 @@ class GoogleCalendarBackend {
             throw new Error('Not signed in to Google account')
         }
 
-        const calendarsData = await this.apiRequest<CalendarListResponse>('/users/me/calendarList?maxResults=50')
-        const calendars: GoogleCalendar[] = (calendarsData.items || []).map(cal => ({
-            id: cal.id,
-            name: cal.summary,
-            color: cal.backgroundColor || '',
-            primary: cal.primary || false
-        }))
+        const calendarsData = await this.apiRequest<CalendarListResponse>(
+            '/users/me/calendarList?maxResults=50'
+        )
+        const calendars: GoogleCalendar[] = (calendarsData.items || []).map(
+            (cal) => ({
+                id: cal.id,
+                name: cal.summary,
+                color: cal.backgroundColor || '',
+                primary: cal.primary || false,
+            })
+        )
 
         return calendars
     }
@@ -283,20 +318,20 @@ class GoogleCalendarBackend {
             summary: 'Instant Meeting',
             start: {
                 dateTime: now.toISOString(),
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
             end: {
                 dateTime: endTime.toISOString(),
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
             conferenceData: {
                 createRequest: {
                     requestId: requestId,
                     conferenceSolutionKey: {
-                        type: 'hangoutsMeet'
-                    }
-                }
-            }
+                        type: 'hangoutsMeet',
+                    },
+                },
+            },
         }
 
         try {
@@ -304,7 +339,7 @@ class GoogleCalendarBackend {
                 '/calendars/primary/events?conferenceDataVersion=1',
                 {
                     method: 'POST',
-                    body: JSON.stringify(event)
+                    body: JSON.stringify(event),
                 }
             )
 
@@ -314,9 +349,12 @@ class GoogleCalendarBackend {
 
             // Delete the temporary event (Meet link will still work)
             try {
-                await this.apiRequest<void>(`/calendars/primary/events/${response.id}`, {
-                    method: 'DELETE'
-                })
+                await this.apiRequest<void>(
+                    `/calendars/primary/events/${response.id}`,
+                    {
+                        method: 'DELETE',
+                    }
+                )
             } catch (deleteError) {
                 console.warn('Failed to delete temporary event:', deleteError)
                 // Non-critical, Meet link still works

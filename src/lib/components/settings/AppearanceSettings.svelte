@@ -55,7 +55,11 @@
         />
     </FormGroup>
     <FormGroup label="tab title" autoWidth>
-        <TextInput bind:value={settings.tabTitle} id="tab-title" placeholder="~" />
+        <TextInput
+            bind:value={settings.tabTitle}
+            id="tab-title"
+            placeholder="~"
+        />
     </FormGroup>
 </InlineGroup>
 
@@ -84,9 +88,14 @@
             <Row align="center" gap="md">
                 <Text size="sm" color="muted">
                     {#if background}
-                        <Text color="secondary">{background.topic || 'random'}</Text>
-                        {' '}by{' '}
-                        <Link href={background.photographer?.profileUrl} target="_blank">
+                        <Text color="secondary"
+                            >{background.topic || 'random'}</Text
+                        >
+                        by
+                        <Link
+                            href={background.photographer?.profileUrl}
+                            target="_blank"
+                        >
                             {background.photographer?.name}
                         </Link>
                     {:else}

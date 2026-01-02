@@ -60,17 +60,22 @@ class WeatherAPI {
     /**
      * Check if cache is stale (older than expiry time)
      */
-    isCacheStale(latitude: number | null = null, longitude: number | null = null): boolean {
+    isCacheStale(
+        latitude: number | null = null,
+        longitude: number | null = null
+    ): boolean {
         if (!this.data.timestamp) return true
 
         // Check if coordinates changed
         if (latitude != null && longitude != null) {
-            if (this._coordinatesChanged(
-                this.data.latitude,
-                this.data.longitude,
-                latitude,
-                longitude
-            )) {
+            if (
+                this._coordinatesChanged(
+                    this.data.latitude,
+                    this.data.longitude,
+                    latitude,
+                    longitude
+                )
+            ) {
                 return true
             }
         }
@@ -113,7 +118,12 @@ class WeatherAPI {
     /**
      * Sync weather data from API
      */
-    async sync(latitude: number, longitude: number, tempUnit: TempUnit, speedUnit: SpeedUnit): Promise<WeatherCacheData> {
+    async sync(
+        latitude: number,
+        longitude: number,
+        tempUnit: TempUnit,
+        speedUnit: SpeedUnit
+    ): Promise<WeatherCacheData> {
         const rawData = await this._fetchWeatherData(
             latitude,
             longitude,
@@ -180,7 +190,9 @@ class WeatherAPI {
     /**
      * Process current weather data with descriptions
      */
-    private _processCurrentWeather(currentData: CurrentWeatherRaw): ProcessedCurrentWeather {
+    private _processCurrentWeather(
+        currentData: CurrentWeatherRaw
+    ): ProcessedCurrentWeather {
         return {
             ...currentData,
             temperature_2m: currentData.temperature_2m.toFixed(0),
@@ -226,7 +238,12 @@ class WeatherAPI {
             const code = hourlyData.weather_code[index]
             const isDay = hourlyData.is_day[index]
 
-            if (time !== undefined && temp !== undefined && code !== undefined && isDay !== undefined) {
+            if (
+                time !== undefined &&
+                temp !== undefined &&
+                code !== undefined &&
+                isDay !== undefined
+            ) {
                 forecasts.push({
                     time,
                     temperature: temp.toFixed(0),
@@ -247,14 +264,19 @@ class WeatherAPI {
         const timeOfDay = isDay ? 'day' : 'night'
         const codeStr = String(weatherCode)
         return (
-            weatherDescriptions[codeStr]?.[timeOfDay]?.description?.toLowerCase() || 'unknown'
+            weatherDescriptions[codeStr]?.[
+                timeOfDay
+            ]?.description?.toLowerCase() || 'unknown'
         )
     }
 
     /**
      * Format time to display (e.g., "12pm" for 12hr, "12:00" for 24hr)
      */
-    private _formatTime(timeString: string, timeFormat: TimeFormat = '12hr'): string {
+    private _formatTime(
+        timeString: string,
+        timeFormat: TimeFormat = '12hr'
+    ): string {
         const date = new Date(timeString)
 
         if (timeFormat === '12hr') {

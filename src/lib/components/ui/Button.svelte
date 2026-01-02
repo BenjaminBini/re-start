@@ -1,7 +1,14 @@
 <script lang="ts">
     import type { Snippet } from 'svelte'
 
-    type Variant = 'default' | 'text' | 'primary' | 'icon' | 'sync' | 'checkbox' | 'delete'
+    type Variant =
+        | 'default'
+        | 'text'
+        | 'primary'
+        | 'icon'
+        | 'sync'
+        | 'checkbox'
+        | 'delete'
 
     let {
         onclick,
@@ -51,7 +58,9 @@
         font: inherit;
         color: var(--txt-3);
         cursor: pointer;
-        transition: color 0.15s ease, opacity 0.15s ease;
+        transition:
+            color 0.15s ease,
+            opacity 0.15s ease;
     }
 
     .button:hover:not(:disabled) {
@@ -128,8 +137,12 @@
     }
 
     @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
     }
 
     /* Checkbox variant */

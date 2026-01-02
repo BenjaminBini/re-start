@@ -60,7 +60,7 @@
                 cache: 'no-cache',
             })
             latency = Math.round(performance.now() - start)
-        } catch (error) {
+        } catch (_error) {
             latency = null
         }
     }
@@ -96,5 +96,9 @@
     <Text as="div">load <Text color="primary">{loadTime} ms</Text></Text>
     <Text as="div">ping <Text color="primary">{latency || '?'} ms</Text></Text>
     <Text as="div">fps <Text color="primary">{fps}</Text></Text>
-    <Text as="div"><Text color="primary">{viewportWidth}</Text> x <Text color="primary">{viewportHeight}</Text></Text>
+    <Text as="div"
+        ><Text color="primary">{viewportWidth}</Text> x <Text color="primary"
+            >{viewportHeight}</Text
+        ></Text
+    >
 </Panel>

@@ -1,0 +1,34 @@
+# Build outputs
+dist
+dist-ssr
+backend/public
+
+# Dependencies
+node_modules
+
+# Auto-generated and tooling
+.auto-claude
+.worktrees
+releases
+
+# Test coverage
+coverage
+
+# Logs
+*.log
+logs
+
+# Editor directories (generated files)
+.vscode
+.idea
+
+# OS files
+.DS_Store
+
+# Package manager lock files (generated)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Reference materials
+reference

@@ -1,6 +1,9 @@
 <script lang="ts">
     import { RefreshCw, ServerOff } from 'lucide-svelte'
-    import { backendStatus, forceCheckBackendHealth } from '../backend-status.svelte'
+    import {
+        backendStatus,
+        forceCheckBackendHealth,
+    } from '../backend-status.svelte'
 
     let isChecking = $state(false)
 
@@ -18,10 +21,13 @@
             <div class="text">
                 <h2>Backend Server Unavailable</h2>
                 <p>
-                    The backend server is not running. Google Calendar, Tasks, and authentication features are disabled.
+                    The backend server is not running. Google Calendar, Tasks,
+                    and authentication features are disabled.
                 </p>
                 <p class="hint">
-                    Start the backend server with: <code>cd backend && node server.js</code>
+                    Start the backend server with: <code
+                        >cd backend && node server.js</code
+                    >
                 </p>
             </div>
         </div>
@@ -38,7 +44,11 @@
         top: 0;
         left: 0;
         right: 0;
-        background: linear-gradient(135deg, oklch(25% 0.08 15) 0%, oklch(20% 0.06 15) 100%);
+        background: linear-gradient(
+            135deg,
+            oklch(25% 0.08 15) 0%,
+            oklch(20% 0.06 15) 100%
+        );
         border-bottom: 1px solid oklch(35% 0.1 15);
         padding: 1rem 1.5rem;
         display: flex;
@@ -119,7 +129,11 @@
     }
 
     @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
     }
 </style>

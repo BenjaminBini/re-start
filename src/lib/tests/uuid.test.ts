@@ -6,7 +6,8 @@ describe('generateUUID', () => {
         const uuid = generateUUID()
         // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
         // where y is one of [8, 9, a, b]
-        const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        const uuidV4Regex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
         expect(uuid).toMatch(uuidV4Regex)
     })
 
@@ -61,23 +62,33 @@ describe('generateUUID', () => {
         afterEach(() => {
             // Restore original randomUUID
             if (originalRandomUUID) {
-                vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: originalRandomUUID })
+                vi.stubGlobal('crypto', {
+                    ...globalThis.crypto,
+                    randomUUID: originalRandomUUID,
+                })
             }
             vi.unstubAllGlobals()
         })
 
         it('works when crypto.randomUUID is unavailable', () => {
             // Stub crypto without randomUUID
-            vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: undefined })
+            vi.stubGlobal('crypto', {
+                ...globalThis.crypto,
+                randomUUID: undefined,
+            })
 
             const uuid = generateUUID()
-            const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            const uuidV4Regex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             expect(uuid).toMatch(uuidV4Regex)
         })
 
         it('fallback generates unique UUIDs', () => {
             // Stub crypto without randomUUID
-            vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: undefined })
+            vi.stubGlobal('crypto', {
+                ...globalThis.crypto,
+                randomUUID: undefined,
+            })
 
             const uuids = new Set<string>()
             const iterations = 100

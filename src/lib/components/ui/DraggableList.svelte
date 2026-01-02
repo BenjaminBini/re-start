@@ -23,7 +23,10 @@
     function handleDragStart(event: DragEvent, index: number): void {
         draggedIndex = index
         event.dataTransfer!.effectAllowed = 'move'
-        event.dataTransfer!.setData('text/html', (event.currentTarget as HTMLElement).outerHTML)
+        event.dataTransfer!.setData(
+            'text/html',
+            (event.currentTarget as HTMLElement).outerHTML
+        )
     }
 
     function handleDragOver(event: DragEvent, index: number): void {
@@ -73,7 +76,7 @@
         </div>
     {/if}
     <div class="items">
-        {#each items as item, index}
+        {#each items as item, index (item.id)}
             <div
                 class="item"
                 class:dragging={draggedIndex === index}

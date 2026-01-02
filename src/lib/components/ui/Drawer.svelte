@@ -65,11 +65,11 @@
 
         {#if tabs.length > 0}
             <nav class="tabs">
-                {#each tabs as tab}
+                {#each tabs as tab (tab.id)}
                     <button
                         class="tab"
                         class:active={activeTab === tab.id}
-                        onclick={() => activeTab = tab.id}
+                        onclick={() => (activeTab = tab.id)}
                         title={tab.title}
                         bind:this={tabElements[tab.id]}
                     >
@@ -172,7 +172,9 @@
         bottom: -2px;
         height: 2px;
         background: var(--txt-2);
-        transition: left 0.2s ease, width 0.2s ease;
+        transition:
+            left 0.2s ease,
+            width 0.2s ease;
     }
 
     .content {

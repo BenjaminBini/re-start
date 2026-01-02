@@ -1,5 +1,10 @@
 import TaskBackend from './task-backend'
-import type { TaskBackendConfig, EnrichedTask, RawTask, TaskDue } from '../types'
+import type {
+    TaskBackendConfig,
+    EnrichedTask,
+    RawTask,
+    TaskDue,
+} from '../types'
 import { generateUUID } from '../uuid'
 
 interface LocalTaskData {

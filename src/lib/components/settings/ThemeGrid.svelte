@@ -14,7 +14,7 @@
 </script>
 
 <GridGroup columns={2} gap="sm" noMargin>
-    {#each themeNames as themeName}
+    {#each themeNames as themeName (themeName)}
         <RadioButton bind:group={selected} value={themeName}>
             <ColorSwatch
                 colors={[

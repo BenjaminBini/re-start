@@ -2,8 +2,16 @@
     import '@fontsource-variable/geist-mono'
     import { settings } from './lib/settings-store.svelte'
     import { themes } from './lib/themes'
-    import { getBackground, loadCachedBackground, forceRefreshBackground } from './lib/unsplash-api'
-    import { handleAuthCallback, tryRestoreSession, hasStoredUserId } from './lib/backends/google-auth'
+    import {
+        getBackground,
+        loadCachedBackground,
+        forceRefreshBackground,
+    } from './lib/unsplash-api'
+    import {
+        handleAuthCallback,
+        tryRestoreSession,
+        hasStoredUserId,
+    } from './lib/backends/google-auth'
     import { authStore } from './lib/stores/auth-store'
     import { checkBackendHealth } from './lib/backend-status.svelte'
     import BackendErrorBanner from './lib/components/BackendErrorBanner.svelte'
@@ -154,7 +162,8 @@
     {#if settings.showBackground && background}
         <div
             class="background"
-            style="--bg-opacity: {settings.backgroundOpacity}; --bg-color: {background.color || '#000'}"
+            style="--bg-opacity: {settings.backgroundOpacity}; --bg-color: {background.color ||
+                '#000'}"
         >
             <!-- Thumbnail: shows immediately, stays visible under full -->
             <img
@@ -299,7 +308,9 @@
         opacity: 0.15;
         z-index: 100;
         color: var(--txt-3);
-        transition: opacity 0.2s ease, color 0.2s ease;
+        transition:
+            opacity 0.2s ease,
+            color 0.2s ease;
     }
     .settings-btn:hover {
         opacity: 1;

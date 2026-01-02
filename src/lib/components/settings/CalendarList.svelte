@@ -14,14 +14,19 @@
 
     function toggleCalendar(calendarId: string): void {
         if (selectedCalendars.includes(calendarId)) {
-            selectedCalendars = selectedCalendars.filter((id) => id !== calendarId)
+            selectedCalendars = selectedCalendars.filter(
+                (id) => id !== calendarId
+            )
         } else {
             selectedCalendars = [...selectedCalendars, calendarId]
         }
     }
 
     function isSelected(calendarId: string): boolean {
-        return selectedCalendars.length === 0 || selectedCalendars.includes(calendarId)
+        return (
+            selectedCalendars.length === 0 ||
+            selectedCalendars.includes(calendarId)
+        )
     }
 </script>
 
@@ -31,10 +36,12 @@
     <Text color="muted">no calendars found</Text>
 {:else}
     <Column gap="sm">
-        {#each calendars as calendar}
+        {#each calendars as calendar (calendar.id)}
             <Button variant="text" onclick={() => toggleCalendar(calendar.id)}>
                 <Row gap="sm" align="center">
-                    <Text color="secondary">{isSelected(calendar.id) ? '[x]' : '[ ]'}</Text>
+                    <Text color="secondary"
+                        >{isSelected(calendar.id) ? '[x]' : '[ ]'}</Text
+                    >
                     <ColorSwatch colors={[calendar.color]} size="sm" rounded />
                     <Text flex>{calendar.name}</Text>
                     {#if calendar.primary}

@@ -14,7 +14,11 @@
     } = $props()
 </script>
 
-<div class="grid-group gap-{gap}" class:no-margin={noMargin} style="--columns: {columns}">
+<div
+    class="grid-group gap-{gap}"
+    class:no-margin={noMargin}
+    style="--columns: {columns}"
+>
     {@render children()}
 </div>
 
@@ -24,10 +28,18 @@
         grid-template-columns: repeat(var(--columns), 1fr);
     }
 
-    .gap-xs { gap: 0.25rem; }
-    .gap-sm { gap: 0.5rem; }
-    .gap-md { gap: 1rem 2rem; }
-    .gap-lg { gap: 1.5rem 3rem; }
+    .gap-xs {
+        gap: 0.25rem;
+    }
+    .gap-sm {
+        gap: 0.5rem;
+    }
+    .gap-md {
+        gap: 1rem 2rem;
+    }
+    .gap-lg {
+        gap: 1.5rem 3rem;
+    }
 
     .grid-group:not(.no-margin) {
         margin-bottom: 1.5rem;

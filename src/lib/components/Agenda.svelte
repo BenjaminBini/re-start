@@ -4,7 +4,11 @@
     import { settings } from '../settings-store.svelte'
     import { authStore } from '../stores/auth-store'
     import type { AuthStatus } from '../stores/auth-store'
-    import { hasMeetScope, signIn, refreshScopes } from '../backends/google-auth'
+    import {
+        hasMeetScope,
+        signIn,
+        refreshScopes,
+    } from '../backends/google-auth'
     import { Panel, Text, Row, Link, Modal, ScrollList, Button } from './ui'
     import { RefreshCw } from 'lucide-svelte'
     import EventItem from './EventItem.svelte'
@@ -15,8 +19,16 @@
 
     function getVideoProvider(url: string): VideoProvider {
         if (!url) return null
-        if (url.includes('meet.google.com') || url.includes('hangouts.google.com')) return 'meet'
-        if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'teams'
+        if (
+            url.includes('meet.google.com') ||
+            url.includes('hangouts.google.com')
+        )
+            return 'meet'
+        if (
+            url.includes('teams.microsoft.com') ||
+            url.includes('teams.live.com')
+        )
+            return 'teams'
         if (url.includes('zoom.us') || url.includes('zoom.com')) return 'zoom'
         return 'other'
     }
@@ -55,7 +67,10 @@
             meetLink = link
         } catch (err) {
             console.error('Failed to create Meet link:', err)
-            if (err.message?.includes('403') || err.message?.includes('insufficient')) {
+            if (
+                err.message?.includes('403') ||
+                err.message?.includes('insufficient')
+            ) {
                 needsReauth = true
             } else {
                 meetError = 'Failed to create meeting'
@@ -110,7 +125,10 @@
             }
 
             // Sync in background if authenticated and cache is stale
-            if (authStatus === 'authenticated' && (api.isCacheStale() || cachedEvents.length === 0)) {
+            if (
+                authStatus === 'authenticated' &&
+                (api.isCacheStale() || cachedEvents.length === 0)
+            ) {
                 loadEvents(cachedEvents.length === 0)
             } else if (authStatus === 'unknown') {
                 syncing = false
@@ -147,11 +165,13 @@
 
         const formatTime = (date: Date): string => {
             if (settings.timeFormat === '12hr') {
-                return date.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
-                }).toLowerCase()
+                return date
+                    .toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                    })
+                    .toLowerCase()
             } else {
                 return date.toLocaleTimeString('en-US', {
                     hour: 'numeric',
@@ -179,7 +199,13 @@
     onLabelClick={() => loadEvents(true)}
     flex={1}
 >
-    <Button variant="sync" onclick={() => loadEvents(true)} disabled={syncing} spinning={syncing} title="sync">
+    <Button
+        variant="sync"
+        onclick={() => loadEvents(true)}
+        disabled={syncing}
+        spinning={syncing}
+        title="sync"
+    >
         <RefreshCw size={14} />
     </Button>
     {#if error}
@@ -187,16 +213,22 @@
     {:else}
         <Row justify="between" align="center" gap="sm">
             <Link href="https://calendar.google.com" target="_blank">
-                <Text color="primary">{eventCount}</Text> event{eventCount === 1 ? '' : 's'} today
+                <Text color="primary">{eventCount}</Text> event{eventCount === 1
+                    ? ''
+                    : 's'} today
             </Link>
-            <Button variant="text" onclick={createInstantMeet} disabled={creatingMeet}>
+            <Button
+                variant="text"
+                onclick={createInstantMeet}
+                disabled={creatingMeet}
+            >
                 + instant conf
             </Button>
         </Row>
 
         <br />
         <ScrollList maxHeight="none">
-            {#each events as event}
+            {#each events as event (event.id)}
                 <EventItem
                     time={formatEventTime(event)}
                     title={event.title}
@@ -217,7 +249,9 @@
 
 <Modal open={showMeetPopup} onClose={closeMeetPopup}>
     {#if needsReauth}
-        <Text color="secondary">Additional permissions required to create Meet links.</Text>
+        <Text color="secondary"
+            >Additional permissions required to create Meet links.</Text
+        >
         <br /><br />
         <Button variant="primary" onclick={handleReauth}>
             Grant permissions

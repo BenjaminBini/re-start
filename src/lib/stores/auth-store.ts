@@ -9,7 +9,7 @@ export interface AuthState {
 
 const initialState: AuthState = {
     status: 'unknown',
-    email: null
+    email: null,
 }
 
 function createAuthStore() {
@@ -18,7 +18,7 @@ function createAuthStore() {
     return {
         subscribe,
         setAuthenticated: (email: string | null) => {
-            update(state => {
+            update((state) => {
                 if (state.status === 'authenticated' && state.email === email) {
                     return state
                 }
@@ -26,7 +26,7 @@ function createAuthStore() {
             })
         },
         setUnauthenticated: () => {
-            update(state => {
+            update((state) => {
                 if (state.status === 'unauthenticated') {
                     return state
                 }
@@ -34,9 +34,9 @@ function createAuthStore() {
             })
         },
         setEmail: (email: string | null) => {
-            update(state => ({ ...state, email }))
+            update((state) => ({ ...state, email }))
         },
-        reset: () => set(initialState)
+        reset: () => set(initialState),
     }
 }
 

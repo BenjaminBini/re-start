@@ -11,7 +11,7 @@
 </script>
 
 <span class="swatch size-{size}" class:rounded>
-    {#each colors as color}
+    {#each colors as color, index (index)}
         <span class="color" style:background-color={color}></span>
     {/each}
 </span>

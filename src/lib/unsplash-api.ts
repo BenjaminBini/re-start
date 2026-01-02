@@ -84,7 +84,10 @@ export function clearBackgroundCache(): void {
 /**
  * Fetch a random background image from Unsplash
  */
-async function fetchFromUnsplash(apiKey: string, topic?: string): Promise<UnsplashBackground> {
+async function fetchFromUnsplash(
+    apiKey: string,
+    topic?: string
+): Promise<UnsplashBackground> {
     if (!apiKey) {
         throw new Error('Unsplash API key is required')
     }
@@ -107,7 +110,7 @@ async function fetchFromUnsplash(apiKey: string, topic?: string): Promise<Unspla
         throw new Error(`Unsplash API error: ${response.status}`)
     }
 
-    const photo = await response.json() as UnsplashApiResponse
+    const photo = (await response.json()) as UnsplashApiResponse
 
     const photographer: UnsplashPhotographer = {
         name: photo.user.name,
@@ -134,7 +137,10 @@ async function fetchFromUnsplash(apiKey: string, topic?: string): Promise<Unspla
 /**
  * Trigger download tracking on Unsplash (required by API guidelines)
  */
-async function triggerDownloadTracking(apiKey: string, downloadLocation: string): Promise<void> {
+async function triggerDownloadTracking(
+    apiKey: string,
+    downloadLocation: string
+): Promise<void> {
     if (!downloadLocation || !apiKey) return
 
     try {
@@ -153,7 +159,9 @@ async function triggerDownloadTracking(apiKey: string, downloadLocation: string)
  * Get background image, fetching new one if needed (lazy update)
  * Returns cached version if still valid for today
  */
-export async function getBackground(apiKey: string): Promise<UnsplashBackground> {
+export async function getBackground(
+    apiKey: string
+): Promise<UnsplashBackground> {
     const cached = loadCachedBackground()
 
     // Return cached if valid for today
@@ -193,7 +201,10 @@ export async function getBackground(apiKey: string): Promise<UnsplashBackground>
 /**
  * Force refresh the background image (user requested)
  */
-export async function forceRefreshBackground(apiKey: string, topic?: string): Promise<UnsplashBackground> {
+export async function forceRefreshBackground(
+    apiKey: string,
+    topic?: string
+): Promise<UnsplashBackground> {
     const background = await fetchFromUnsplash(apiKey, topic)
     saveBackground(background)
 

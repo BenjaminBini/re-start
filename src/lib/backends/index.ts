@@ -5,7 +5,10 @@ import GoogleCalendarBackend from './google-calendar-backend'
 import type TaskBackend from './task-backend'
 import type { TaskBackendConfig, TaskBackendType } from '../types'
 
-export function createTaskBackend(type: TaskBackendType, config: TaskBackendConfig): TaskBackend {
+export function createTaskBackend(
+    type: TaskBackendType,
+    config: TaskBackendConfig
+): TaskBackend {
     switch (type) {
         case 'todoist':
             return new TodoistBackend(config)
@@ -22,4 +25,9 @@ export function createCalendarBackend(): GoogleCalendarBackend {
     return new GoogleCalendarBackend()
 }
 
-export { TodoistBackend, LocalStorageBackend, GoogleTasksBackend, GoogleCalendarBackend }
+export {
+    TodoistBackend,
+    LocalStorageBackend,
+    GoogleTasksBackend,
+    GoogleCalendarBackend,
+}

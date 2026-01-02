@@ -8,8 +8,20 @@
         weeks: (number | null)[][]
     }
 
-    const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
-                    'july', 'august', 'september', 'october', 'november', 'december']
+    const MONTHS = [
+        'january',
+        'february',
+        'march',
+        'april',
+        'may',
+        'june',
+        'july',
+        'august',
+        'september',
+        'october',
+        'november',
+        'december',
+    ]
 
     let now = $state(new Date())
     let currentMonth = $derived(now.getMonth())
@@ -17,7 +29,12 @@
     let today = $derived(now.getDate())
 
     $effect(() => {
-        const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
+        const msUntilMidnight =
+            new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate() + 1
+            ).getTime() - now.getTime()
         const timeout = setTimeout(() => {
             now = new Date()
         }, msUntilMidnight)
@@ -62,7 +79,17 @@
 
 <Panel label="calendar" flex={1} noFade noPaddingBottom>
     <Row gap="xl">
-        <CalendarGrid monthData={thisMonth} {currentMonth} {currentYear} {today} />
-        <CalendarGrid monthData={nextMonthData()} {currentMonth} {currentYear} {today} />
+        <CalendarGrid
+            monthData={thisMonth}
+            {currentMonth}
+            {currentYear}
+            {today}
+        />
+        <CalendarGrid
+            monthData={nextMonthData()}
+            {currentMonth}
+            {currentYear}
+            {today}
+        />
     </Row>
 </Panel>

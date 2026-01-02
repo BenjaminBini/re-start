@@ -15,9 +15,9 @@
 
 <Panel label="links" span={3} noFade noPaddingBottom>
     <Row gap="none">
-        {#each columns as column}
+        {#each columns as column, columnIndex (columnIndex)}
             <Column flex={1}>
-                {#each column as link}
+                {#each column as link, linkIndex (`${columnIndex}-${linkIndex}`)}
                     <Link href={link.url} target={settings.linkTarget}>
                         {#if settings.showFavicons && link.url}
                             <Favicon url={link.url} />

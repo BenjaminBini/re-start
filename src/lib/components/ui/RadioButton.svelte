@@ -1,7 +1,12 @@
 <script lang="ts">
     import type { Snippet } from 'svelte'
 
-    let { group = $bindable(), value, disabled = false, children }: {
+    let {
+        group = $bindable(),
+        value,
+        disabled = false,
+        children,
+    }: {
         group: string
         value: string
         disabled?: boolean

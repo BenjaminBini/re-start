@@ -21,9 +21,11 @@
     } = $props()
 
     function isToday(day: number | null): boolean {
-        return day === today &&
-               monthData.month === currentMonth &&
-               monthData.year === currentYear
+        return (
+            day === today &&
+            monthData.month === currentMonth &&
+            monthData.year === currentYear
+        )
     }
 </script>
 
@@ -31,14 +33,14 @@
     <div class="month-header">{monthData.name}</div>
     <div class="calendar-grid">
         <div class="days-header">
-            {#each DAYS as day}
+            {#each DAYS as day, dayIndex (dayIndex)}
                 <span class="day-name">{day}</span>
             {/each}
         </div>
         <div class="weeks">
-            {#each monthData.weeks as week}
+            {#each monthData.weeks as week, weekIndex (weekIndex)}
                 <div class="week">
-                    {#each week as day}
+                    {#each week as day, dayIndex (`${weekIndex}-${dayIndex}`)}
                         <span
                             class="day"
                             class:empty={day === null}

@@ -4,7 +4,15 @@
         settings,
         resetSettings,
     } from '../settings-store.svelte'
-    import { Paintbrush, Plug, Clock, Sun, SquareCheck, Calendar, Link } from 'lucide-svelte'
+    import {
+        Paintbrush,
+        Plug,
+        Clock,
+        Sun,
+        SquareCheck,
+        Calendar,
+        Link,
+    } from 'lucide-svelte'
     import type { Component } from 'svelte'
     import type { UnsplashBackground } from '../types'
     import SettingsDrawer from './settings/SettingsDrawer.svelte'
@@ -24,7 +32,12 @@
         title: string
     }
 
-    let { showSettings = false, closeSettings, refreshBackground = null, background = null }: {
+    let {
+        showSettings = false,
+        closeSettings,
+        refreshBackground = null,
+        background = null,
+    }: {
         showSettings: boolean
         closeSettings: () => void
         refreshBackground: (() => Promise<void>) | null
@@ -38,21 +51,28 @@
         { id: 'weather', icon: Sun, title: 'Weather' },
         { id: 'tasks', icon: SquareCheck, title: 'Tasks' },
         { id: 'calendar', icon: Calendar, title: 'Calendar' },
-        { id: 'links', icon: Link, title: 'Links' }
+        { id: 'links', icon: Link, title: 'Links' },
     ]
     let activeTab = $state('appearance')
 
     // Calendar settings reference for fetching calendars
-    let calendarSettingsRef = $state<{ fetchCalendars: () => Promise<void> } | null>(null)
+    let calendarSettingsRef = $state<{
+        fetchCalendars: () => Promise<void>
+    } | null>(null)
 
     // Fetch calendars when settings opens and user is signed in
     $effect(() => {
-        if (showSettings && settings.googleTasksSignedIn && settings.showCalendar && calendarSettingsRef) {
+        if (
+            showSettings &&
+            settings.googleTasksSignedIn &&
+            settings.showCalendar &&
+            calendarSettingsRef
+        ) {
             calendarSettingsRef.fetchCalendars()
         }
     })
 
-    // @ts-ignore
+    // @ts-expect-error - __APP_VERSION__ is injected at build time
     const version = __APP_VERSION__
 
     function handleClose(): void {
@@ -61,7 +81,9 @@
     }
 
     function handleReset(): void {
-        if (confirm('are you sure you want to reset all settings to default?')) {
+        if (
+            confirm('are you sure you want to reset all settings to default?')
+        ) {
             resetSettings()
             saveSettings(settings)
         }

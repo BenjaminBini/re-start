@@ -35,9 +35,9 @@
         <Link href="https://github.com/refact0r/re-start" target="_blank">
             {#if version}v{version}{/if}
         </Link>
-        {' • made with love by '}
+        • made with love by
         <Link href="https://refact0r.dev" target="_blank">refact0r</Link>
-        {' • '}
+        •
         <button onclick={onReset}>reset settings</button>
     {/snippet}
 </Drawer>

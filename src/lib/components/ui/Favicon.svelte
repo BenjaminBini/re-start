@@ -6,10 +6,14 @@
     } = $props()
 
     const FAVICON_OVERRIDES: Record<string, string> = {
-        'mail.google.com': 'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico',
-        'calendar.google.com': 'https://calendar.google.com/googlecalendar/images/favicons_2020q4/calendar_31.ico',
-        'drive.google.com': 'https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png',
-        'docs.google.com': 'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico',
+        'mail.google.com':
+            'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico',
+        'calendar.google.com':
+            'https://calendar.google.com/googlecalendar/images/favicons_2020q4/calendar_31.ico',
+        'drive.google.com':
+            'https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png',
+        'docs.google.com':
+            'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico',
         'keep.google.com': 'https://ssl.gstatic.com/keep/icon_2020q4v2_128.png',
     }
 

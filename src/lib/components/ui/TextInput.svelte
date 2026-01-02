@@ -39,14 +39,31 @@
         border-color: var(--txt-3);
     }
 
-    .variant-default { background: var(--bg-2); }
-    .variant-light { background: var(--bg-1); border-width: 1px; }
+    .variant-default {
+        background: var(--bg-2);
+    }
+    .variant-light {
+        background: var(--bg-1);
+        border-width: 1px;
+    }
 
-    .size-sm { padding: 0.375rem 0.5rem; }
-    .size-md { padding: 0.5rem; }
+    .size-sm {
+        padding: 0.375rem 0.5rem;
+    }
+    .size-md {
+        padding: 0.5rem;
+    }
 
-    .width-full { width: 100%; }
-    .width-sm { width: 8rem; }
-    .width-md { width: 10rem; }
-    .width-lg { width: 16rem; }
+    .width-full {
+        width: 100%;
+    }
+    .width-sm {
+        width: 8rem;
+    }
+    .width-md {
+        width: 10rem;
+    }
+    .width-lg {
+        width: 16rem;
+    }
 </style>
