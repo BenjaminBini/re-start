@@ -1,4 +1,5 @@
-import * as googleAuth from './google-auth/'
+import * as googleAuth from './google-auth'
+import { createApiClient } from './google-auth'
 import { generateUUID } from '../uuid'
 import type {
     CalendarBackendConfig,
@@ -68,6 +69,7 @@ class GoogleCalendarBackend {
     private dataKey: string
     private cacheExpiry: number
     private data: GoogleCalendarData
+    private apiRequest: <T>(endpoint: string, options?: RequestInit) => Promise<T>
 
     constructor(_config: CalendarBackendConfig = {}) {
         this.baseUrl = 'https://www.googleapis.com/calendar/v3'
@@ -81,6 +83,9 @@ class GoogleCalendarBackend {
         this.data = storedData
             ? (JSON.parse(storedData) as GoogleCalendarData)
             : {}
+
+        // Create API client with base URL
+        this.apiRequest = createApiClient(this.baseUrl)
     }
 
     /**
@@ -96,24 +101,6 @@ class GoogleCalendarBackend {
      */
     getIsSignedIn(): boolean {
         return googleAuth.isSignedIn()
-    }
-
-    /**
-     * Make an authenticated API request with auto-refresh
-     * Delegates to shared googleAuth.apiRequest
-     */
-    private async apiRequest<T>(
-        endpoint: string,
-        options: RequestInit = {}
-    ): Promise<T> {
-        const url = `${this.baseUrl}${endpoint}`
-        return googleAuth.apiRequest<T>(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-        })
     }
 
     /**

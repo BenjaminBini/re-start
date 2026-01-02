@@ -1,5 +1,6 @@
 import TaskBackend from './task-backend'
-import * as googleAuth from './google-auth/'
+import * as googleAuth from './google-auth'
+import { createApiClient } from './google-auth'
 import type { TaskBackendConfig, EnrichedTask } from '../types'
 import { createLogger } from '../logger'
 import { AuthError, SyncError } from '../errors'
@@ -51,6 +52,7 @@ class GoogleTasksBackend extends TaskBackend {
     protected override data: GoogleTasksData
     protected override cacheExpiry: number
     private defaultTasklistId: string
+    private apiRequest: <T>(endpoint: string, options?: RequestInit) => Promise<T>
 
     constructor(config: TaskBackendConfig = {}) {
         super(config)
@@ -69,6 +71,9 @@ class GoogleTasksBackend extends TaskBackend {
             : { tasklists: [], tasks: [] }
         this.defaultTasklistId =
             localStorage.getItem(this.tasklistIdKey) ?? '@default'
+
+        // Create API client with base URL
+        this.apiRequest = createApiClient(this.baseUrl)
     }
 
     /**
@@ -105,24 +110,6 @@ class GoogleTasksBackend extends TaskBackend {
      */
     async ensureValidToken(): Promise<string> {
         return googleAuth.ensureValidToken()
-    }
-
-    /**
-     * Make an authenticated API request with auto-refresh
-     * Delegates to shared googleAuth.apiRequest
-     */
-    private async apiRequest<T>(
-        endpoint: string,
-        options: RequestInit = {}
-    ): Promise<T> {
-        const url = `${this.baseUrl}${endpoint}`
-        return googleAuth.apiRequest<T>(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-        })
     }
 
     /**
