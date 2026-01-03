@@ -7,6 +7,7 @@
         size = 'md',
         width = 'full',
         variant = 'default',
+        'aria-label': ariaLabel = '',
     }: {
         value: string
         id?: string
@@ -15,6 +16,7 @@
         size?: 'sm' | 'md'
         width?: 'full' | 'sm' | 'md' | 'lg'
         variant?: 'default' | 'light'
+        'aria-label'?: string
     } = $props()
 </script>
 
@@ -23,6 +25,7 @@
     {id}
     {placeholder}
     bind:value
+    aria-label={ariaLabel || undefined}
     class="text-input size-{size} width-{width} variant-{variant}"
 />
 

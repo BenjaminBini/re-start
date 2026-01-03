@@ -10,8 +10,13 @@
     } = $props()
 </script>
 
-<button class="checkbox-label" onclick={() => (checked = !checked)}>
-    <span class="checkbox">{checked ? '[x]' : '[ ]'}</span>
+<button
+    class="checkbox-label"
+    onclick={() => (checked = !checked)}
+    role="checkbox"
+    aria-checked={checked}
+>
+    <span class="checkbox" aria-hidden="true">{checked ? '[x]' : '[ ]'}</span>
     {#if children}{@render children()}{/if}
 </button>
 

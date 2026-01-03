@@ -12,6 +12,23 @@
         children: Snippet
     } = $props()
 
+    let modalElement = $state<HTMLDivElement | null>(null)
+    let previouslyFocused = $state<HTMLElement | null>(null)
+
+    // Focus trap and auto-focus when modal opens
+    $effect(() => {
+        if (open && modalElement) {
+            // Store previously focused element
+            previouslyFocused = document.activeElement as HTMLElement | null
+            // Focus the modal container
+            modalElement.focus()
+        } else if (!open && previouslyFocused) {
+            // Restore focus when closing
+            previouslyFocused.focus()
+            previouslyFocused = null
+        }
+    })
+
     function handleOverlayClick() {
         onClose?.()
     }
@@ -23,6 +40,32 @@
     function handleKeyDown(e: KeyboardEvent) {
         if (e.key === 'Escape') {
             onClose?.()
+            return
+        }
+
+        // Focus trap: handle Tab key
+        if (e.key === 'Tab' && modalElement) {
+            const focusableElements = modalElement.querySelectorAll<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            )
+            const firstElement = focusableElements[0]
+            const lastElement = focusableElements[focusableElements.length - 1]
+
+            if (!firstElement) return
+
+            if (e.shiftKey) {
+                // Shift+Tab: if on first element, wrap to last
+                if (document.activeElement === firstElement) {
+                    e.preventDefault()
+                    lastElement?.focus()
+                }
+            } else {
+                // Tab: if on last element, wrap to first
+                if (document.activeElement === lastElement) {
+                    e.preventDefault()
+                    firstElement.focus()
+                }
+            }
         }
     }
 </script>
@@ -36,6 +79,7 @@
     >
         <div
             class="modal"
+            bind:this={modalElement}
             onclick={handleContentClick}
             onkeydown={handleKeyDown}
             role="dialog"

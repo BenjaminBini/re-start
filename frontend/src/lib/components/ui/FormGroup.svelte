@@ -3,10 +3,12 @@
 
     let {
         label = '',
+        labelFor = '',
         autoWidth = false,
         children,
     }: {
         label?: string
+        labelFor?: string
         autoWidth?: boolean
         children: Snippet
     } = $props()
@@ -14,7 +16,11 @@
 
 <div class="group" class:auto-width={autoWidth}>
     {#if label}
-        <div class="label">{label}</div>
+        {#if labelFor}
+            <label class="label" for={labelFor}>{label}</label>
+        {:else}
+            <span class="label">{label}</span>
+        {/if}
     {/if}
     {@render children()}
 </div>

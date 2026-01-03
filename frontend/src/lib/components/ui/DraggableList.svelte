@@ -19,6 +19,7 @@
 
     let draggedIndex = $state<number | null>(null)
     let dragOverIndex = $state<number | null>(null)
+    let dragHandles = $state<HTMLSpanElement[]>([])
 
     function handleDragStart(event: DragEvent, index: number): void {
         draggedIndex = index
@@ -45,9 +46,11 @@
         if (draggedIndex !== null && draggedIndex !== dropIndex) {
             const newItems = [...items]
             const draggedItem = newItems[draggedIndex]
-            newItems.splice(draggedIndex, 1)
-            newItems.splice(dropIndex, 0, draggedItem)
-            items = newItems
+            if (draggedItem) {
+                newItems.splice(draggedIndex, 1)
+                newItems.splice(dropIndex, 0, draggedItem)
+                items = newItems
+            }
         }
 
         draggedIndex = null
@@ -62,6 +65,41 @@
     function removeItem(index: number): void {
         items = items.filter((_, i) => i !== index)
     }
+
+    function moveItem(fromIndex: number, toIndex: number): void {
+        if (toIndex < 0 || toIndex >= items.length) return
+
+        const newItems = [...items]
+        const item = newItems[fromIndex]
+        if (item) {
+            newItems.splice(fromIndex, 1)
+            newItems.splice(toIndex, 0, item)
+            items = newItems
+
+            // Focus the drag handle at the new position after DOM updates
+            requestAnimationFrame(() => {
+                dragHandles[toIndex]?.focus()
+            })
+        }
+    }
+
+    function handleKeyDown(event: KeyboardEvent, index: number): void {
+        switch (event.key) {
+            case 'ArrowUp':
+                event.preventDefault()
+                moveItem(index, index - 1)
+                break
+            case 'ArrowDown':
+                event.preventDefault()
+                moveItem(index, index + 1)
+                break
+            case ' ':
+            case 'Enter':
+                // Announce current position for screen readers
+                event.preventDefault()
+                break
+        }
+    }
 </script>
 
 <div class="draggable-list">
@@ -75,7 +113,7 @@
             {/if}
         </div>
     {/if}
-    <div class="items">
+    <div class="items" role="list" aria-label={label || 'Reorderable list'}>
         {#each items as item, index (item.id)}
             <div
                 class="item"
@@ -88,12 +126,15 @@
             >
                 <span
                     class="drag-handle"
-                    title="Drag to reorder"
+                    title="Drag to reorder, or use arrow keys"
                     draggable="true"
                     ondragstart={(e) => handleDragStart(e, index)}
                     ondragend={handleDragEnd}
+                    onkeydown={(e) => handleKeyDown(e, index)}
                     role="button"
-                    tabindex="0">=</span
+                    tabindex="0"
+                    aria-label={`Reorder item ${index + 1} of ${items.length}. Use arrow keys to move.`}
+                    bind:this={dragHandles[index]}>=</span
                 >
                 {@render itemContent(item, index, removeItem)}
             </div>

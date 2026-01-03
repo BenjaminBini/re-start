@@ -36,6 +36,8 @@
     {onclick}
     {disabled}
     {title}
+    role={variant === 'checkbox' ? 'checkbox' : undefined}
+    aria-checked={variant === 'checkbox' ? checked : undefined}
 >
     {#if variant === 'default' && children}
         [{@render children()}]
