@@ -75,13 +75,6 @@ function saveBackground(data: UnsplashBackground): void {
 }
 
 /**
- * Clear cached background data
- */
-export function clearBackgroundCache(): void {
-    localStorage.removeItem(STORAGE_KEY)
-}
-
-/**
  * Fetch a random background image from Unsplash
  */
 async function fetchFromUnsplash(

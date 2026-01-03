@@ -49,12 +49,4 @@ export function deleteToken(userId) {
     stmt.run(userId)
 }
 
-/**
- * Check if user has a stored token
- */
-export function hasToken(userId) {
-    const stmt = db.prepare('SELECT 1 FROM tokens WHERE user_id = ?')
-    return !!stmt.get(userId)
-}
-
-export default { storeToken, getToken, deleteToken, hasToken }
+export default { storeToken, getToken, deleteToken }

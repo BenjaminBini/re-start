@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseSmartDate } from '../date-matcher'
-import type { DateFormatPreference } from '../types'
+import type { DateFormat } from '../types'
 
 interface DateDue {
     year: number
@@ -21,7 +21,7 @@ interface TestCase {
     input: string
     expected: TestExpected | null
     now?: string
-    options?: { dateFormat: DateFormatPreference }
+    options?: { dateFormat: DateFormat }
 }
 
 const FIXED_NOW = new Date('2025-12-07T12:00:00Z')

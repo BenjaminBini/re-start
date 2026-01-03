@@ -10,17 +10,18 @@
 export { authStore } from '../../stores/auth-store'
 
 // Token operations
-export { isTokenExpired, needsRefresh, ensureValidToken } from './token'
+export { ensureValidToken } from './token'
 
 // Storage operations
 export {
-    getAccessToken,
     getUserEmail,
     hasStoredUserId,
-    hasScope,
     hasMeetScope,
     migrateStorageKeys,
 } from './storage'
+
+// API requests
+export { apiRequest, createApiClient } from './api'
 
 // Scope management
 export { refreshScopes } from './scopes'
@@ -30,6 +31,3 @@ export { isSignedIn } from './auth-state'
 
 // OAuth flow
 export { handleAuthCallback, signIn, signOut, tryRestoreSession } from './oauth'
-
-// API requests
-export { apiRequest, createApiClient } from './api'

@@ -111,27 +111,6 @@ export interface GoogleCalendar {
     primary: boolean
 }
 
-export interface CalendarEventRaw {
-    id: string
-    summary?: string
-    description?: string
-    location?: string
-    hangoutLink?: string
-    htmlLink?: string
-    status?: string
-    start: {
-        date?: string
-        dateTime?: string
-    }
-    end: {
-        date?: string
-        dateTime?: string
-    }
-    calendarId: string
-    calendarName: string
-    calendarColor: string
-}
-
 export interface CalendarEvent {
     id: string
     title: string
@@ -266,22 +245,4 @@ export interface TaskBackendConfig {
 
 export interface CalendarBackendConfig {
     // Empty config for now, can be extended in the future
-}
-
-export interface GoogleCalendarData {
-    calendars?: CalendarEventRaw[]
-    events?: CalendarEventRaw[]
-    timestamp?: number
-}
-
-// Google Auth types
-export interface GoogleAuthToken {
-    access_token: string
-    expires_at: number
-    refresh_token?: string
-}
-
-export interface GoogleUserInfo {
-    email: string
-    name?: string
 }

@@ -108,5 +108,3 @@ export const themes: ThemeMap = {
 }
 
 export const themeNames: string[] = Object.keys(themes)
-
-export const defaultTheme: string = 'default'
