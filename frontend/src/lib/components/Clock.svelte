@@ -53,17 +53,14 @@
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible') {
             startClock()
-        } else {
-            if (clockInterval) {
-                clearInterval(clockInterval)
-                clockInterval = null
-            }
+        } else if (clockInterval) {
+            clearInterval(clockInterval)
+            clockInterval = null
         }
     }
 
     onMount(() => {
         startClock()
-        document.addEventListener('visibilitychange', handleVisibilityChange)
     })
 
     onDestroy(() => {
@@ -72,6 +69,8 @@
         }
     })
 </script>
+
+<svelte:document onvisibilitychange={handleVisibilityChange} />
 
 <Panel label="datetime" span={2}>
     <Text as="div" size="3xl" color="primary" weight="light">

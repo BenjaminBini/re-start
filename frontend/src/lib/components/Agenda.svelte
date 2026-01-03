@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte'
+
     import { createCalendarProvider } from '../providers/index'
     import { settings } from '../settings-store.svelte'
     import { authStore } from '../stores/auth-store'
@@ -63,14 +63,13 @@
         showMeetPopup = true
 
         try {
+            if (!api) throw new Error('Calendar API not initialized')
             const link = await api.createMeetLink()
             meetLink = link
         } catch (err) {
             console.error('Failed to create Meet link:', err)
-            if (
-                err.message?.includes('403') ||
-                err.message?.includes('insufficient')
-            ) {
+            const message = err instanceof Error ? err.message : ''
+            if (message.includes('403') || message.includes('insufficient')) {
                 needsReauth = true
             } else {
                 meetError = 'Failed to create meeting'
@@ -98,9 +97,7 @@
     }
 
     $effect(() => {
-        const authStatus = $authStore.status
-        console.log('[Calendar] Effect triggered:', { authStatus })
-        initializeAPI(authStatus)
+        initializeAPI($authStore.status)
     })
 
     async function initializeAPI(authStatus: AuthStatus): Promise<void> {
@@ -141,7 +138,7 @@
     }
 
     async function loadEvents(showSyncing = false): Promise<void> {
-        if (syncInProgress) return
+        if (syncInProgress || !api) return
         syncInProgress = true
         try {
             if (showSyncing) syncing = true
@@ -184,14 +181,9 @@
         return formatTime(event.startTime)
     }
 
-    onMount(() => {
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-    })
-
-    onDestroy(() => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
-    })
 </script>
+
+<svelte:document onvisibilitychange={handleVisibilityChange} />
 
 <Panel
     label={syncing ? 'syncing...' : 'agenda'}
@@ -232,7 +224,7 @@
                 <EventItem
                     time={formatEventTime(event)}
                     title={event.title}
-                    href={event.htmlLink}
+                    href={event.htmlLink || ''}
                     location={event.location}
                     videoLink={event.hangoutLink}
                     videoProvider={getVideoProvider(event.hangoutLink)}

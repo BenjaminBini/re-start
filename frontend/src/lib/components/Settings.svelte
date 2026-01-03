@@ -13,7 +13,6 @@
         Calendar,
         Link,
     } from 'lucide-svelte'
-    import type { Component } from 'svelte'
     import type { UnsplashBackground } from '../types'
     import SettingsDrawer from './settings/SettingsDrawer.svelte'
 
@@ -28,7 +27,8 @@
 
     interface Tab {
         id: string
-        icon: Component
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        icon: any
         title: string
     }
 
@@ -57,7 +57,7 @@
 
     // Calendar settings reference for fetching calendars
     let calendarSettingsRef = $state<{
-        fetchCalendars: () => Promise<void>
+        fetchCalendars: () => void
     } | null>(null)
 
     // Fetch calendars when settings opens and user is signed in
@@ -72,7 +72,6 @@
         }
     })
 
-    // @ts-expect-error - __APP_VERSION__ is injected at build time
     const version = __APP_VERSION__
 
     function handleClose(): void {

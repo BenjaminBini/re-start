@@ -1,7 +1,6 @@
 <script lang="ts">
     import { settings, saveSettings } from '../../settings-store.svelte'
-    import { createTaskProvider } from '../../providers/index'
-    import type GoogleTasksProvider from '../../providers/google-tasks-provider'
+    import GoogleTasksProvider from '../../providers/google-tasks-provider'
     import { Button, VerifyButton } from '../ui'
     import IntegrationCard from './IntegrationCard.svelte'
 
@@ -55,12 +54,12 @@
             signInError = ''
 
             if (!googleTasksApi) {
-                googleTasksApi = createTaskProvider('google-tasks')
+                googleTasksApi = new GoogleTasksProvider({})
             }
 
             await googleTasksApi.signIn()
             settings.googleTasksSignedIn = true
-            googleUserEmail = googleTasksApi.getUserEmail() || ''
+            googleUserEmail = googleTasksApi.getUserEmail() ?? ''
             saveSettings(settings)
         } catch (err) {
             console.error('Google sign-in error:', err)
@@ -74,7 +73,7 @@
     async function handleGoogleSignOut(): Promise<void> {
         try {
             if (!googleTasksApi) {
-                googleTasksApi = createTaskProvider('google-tasks')
+                googleTasksApi = new GoogleTasksProvider({})
             }
 
             await googleTasksApi.signOut()

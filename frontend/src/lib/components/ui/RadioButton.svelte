@@ -12,14 +12,12 @@
         disabled?: boolean
         children?: Snippet
     } = $props()
-
-    let isChecked = $derived(group === value)
 </script>
 
 <label class:disabled>
     <input type="radio" bind:group {value} {disabled} />
     <span class="radio-indicator">
-        {#if isChecked}
+        {#if group === value}
             [<span class="radio-x">x</span>]
         {:else}
             [ ]

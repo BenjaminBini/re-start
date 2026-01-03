@@ -38,14 +38,14 @@ interface UnsplashApiResponse {
  * Get today's date as YYYY-MM-DD string
  */
 function getTodayDate(): string {
-    return new Date().toISOString().split('T')[0]
+    return new Date().toISOString().split('T')[0] ?? ''
 }
 
 /**
  * Get a random topic from the list
  */
 function getRandomTopic(): string {
-    return TOPICS[Math.floor(Math.random() * TOPICS.length)]
+    return TOPICS[Math.floor(Math.random() * TOPICS.length)] ?? 'nature'
 }
 
 /**

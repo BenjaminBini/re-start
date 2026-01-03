@@ -22,19 +22,14 @@
         noFade?: boolean
         noPaddingBottom?: boolean
     } = $props()
-
-    const wrapperStyle = $derived(
-        [
-            span ? `grid-column: span ${span}` : '',
-            flex !== undefined ? `flex: ${flex}` : '',
-            flexShrink !== undefined ? `flex-shrink: ${flexShrink}` : '',
-        ]
-            .filter(Boolean)
-            .join('; ')
-    )
 </script>
 
-<div class="panel-wrapper" style={wrapperStyle || undefined}>
+<div
+    class="panel-wrapper"
+    style:grid-column={span ? `span ${span}` : undefined}
+    style:flex
+    style:flex-shrink={flexShrink}
+>
     {#if clickableLabel}
         <button class="panel-label clickable" onclick={onLabelClick}>
             {label}

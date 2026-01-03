@@ -21,13 +21,11 @@
         onsubmit?: (event: SubmitEvent) => void
         oninput?: (value: string) => void
     } = $props()
-
-    const match = $derived(parsed?.match ?? null)
 </script>
 
 <HighlightInput
     bind:value
-    {match}
+    match={parsed?.match ?? null}
     {placeholder}
     disabled={disabled || loading}
     prefix="+"

@@ -236,7 +236,7 @@ describe('WeatherAPI', () => {
             )
 
             const savedData = JSON.parse(
-                mockLocalStorage._store['weather_data']
+                mockLocalStorage._store['weather_data']!
             )
             expect(savedData.raw).toEqual(mockResponse)
             expect(savedData.timestamp).toBeDefined()
@@ -691,10 +691,10 @@ describe('WeatherAPI', () => {
 
             // Should get forecasts at 3, 6, 9, 12, 15 hours from current (indexes 3, 6, 9, 12)
             expect(weather?.forecast).toHaveLength(4)
-            expect(weather?.forecast[0].time).toBe('2025-12-07T15:00:00')
-            expect(weather?.forecast[1].time).toBe('2025-12-07T18:00:00')
-            expect(weather?.forecast[2].time).toBe('2025-12-07T21:00:00')
-            expect(weather?.forecast[3].time).toBe('2025-12-08T00:00:00')
+            expect(weather?.forecast[0]!.time).toBe('2025-12-07T15:00:00')
+            expect(weather?.forecast[1]!.time).toBe('2025-12-07T18:00:00')
+            expect(weather?.forecast[2]!.time).toBe('2025-12-07T21:00:00')
+            expect(weather?.forecast[3]!.time).toBe('2025-12-08T00:00:00')
         })
 
         it('limits forecast to 5 items maximum', async () => {
@@ -784,7 +784,7 @@ describe('WeatherAPI', () => {
             const weather = api.getWeather('12hr')
 
             // Format is like "3pm" or "3 pm" depending on browser locale
-            expect(weather?.forecast[0].formattedTime).toMatch(/^\d{1,2}\s?(am|pm)$/)
+            expect(weather?.forecast[0]!.formattedTime).toMatch(/^\d{1,2}\s?(am|pm)$/)
         })
 
         it('formats forecast times in 24hr format', async () => {
@@ -825,7 +825,7 @@ describe('WeatherAPI', () => {
 
             const weather = api.getWeather('24hr')
 
-            expect(weather?.forecast[0].formattedTime).toMatch(/^\d{1,2}:\d{2}$/)
+            expect(weather?.forecast[0]!.formattedTime).toMatch(/^\d{1,2}:\d{2}$/)
         })
 
         it('rounds forecast temperatures to whole numbers', async () => {
@@ -866,8 +866,8 @@ describe('WeatherAPI', () => {
 
             const weather = api.getWeather()
 
-            expect(weather?.forecast[0].temperature).toBe('23')
-            expect(weather?.forecast[1].temperature).toBe('20')
+            expect(weather?.forecast[0]!.temperature).toBe('23')
+            expect(weather?.forecast[1]!.temperature).toBe('20')
         })
     })
 
@@ -938,7 +938,7 @@ describe('WeatherAPI', () => {
             api.invalidateCache()
 
             const savedData = JSON.parse(
-                mockLocalStorage._store['weather_data']
+                mockLocalStorage._store['weather_data']!
             )
             expect(savedData.timestamp).toBe(0)
         })

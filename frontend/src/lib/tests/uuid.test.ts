@@ -46,8 +46,7 @@ describe('generateUUID', () => {
 
     it('has correct variant bits', () => {
         const uuid = generateUUID()
-        // Character at position 19 should be one of [8, 9, a, b]
-        const variantChar = uuid[19].toLowerCase()
+        const variantChar = uuid[19]!.toLowerCase()
         expect(['8', '9', 'a', 'b']).toContain(variantChar)
     })
 

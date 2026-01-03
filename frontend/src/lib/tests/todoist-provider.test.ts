@@ -104,7 +104,7 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Existing task')
+            expect(tasks[0]!.content).toBe('Existing task')
         })
 
         it('defaults to "*" sync token when not in localStorage', () => {
@@ -206,7 +206,7 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('New task')
+            expect(tasks[0]!.content).toBe('New task')
 
             expect(backend.getProjectName('p1')).toBe('Project 1')
             expect(backend.getLabelNames(['l1'])).toEqual(['Label 1'])
@@ -316,8 +316,8 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Updated content')
-            expect(tasks[0].checked).toBe(true)
+            expect(tasks[0]!.content).toBe('Updated content')
+            expect(tasks[0]!.checked).toBe(true)
         })
 
         it('removes deleted items during incremental sync', async () => {
@@ -381,8 +381,8 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].id).toBe('1')
-            expect(tasks[0].content).toBe('Task to keep')
+            expect(tasks[0]!.id).toBe('1')
+            expect(tasks[0]!.content).toBe('Task to keep')
         })
 
         it('saves updated data to localStorage after sync', async () => {
@@ -419,7 +419,7 @@ describe('TodoistProvider', () => {
             )
 
             const savedData = JSON.parse(
-                mockLocalStorage._store['todoist_data']
+                mockLocalStorage._store['todoist_data']!
             )
             expect(savedData.items).toHaveLength(1)
             expect(savedData.timestamp).toBeDefined()
@@ -780,10 +780,10 @@ describe('TodoistProvider', () => {
             const commands = JSON.parse(formData.get('commands') as string)
 
             expect(commands).toHaveLength(1)
-            expect(commands[0].type).toBe('item_add')
+            expect(commands[0]!.type).toBe('item_add')
             expect(commands[0].args.content).toBe('New task')
-            expect(commands[0].uuid).toBe('mock-uuid-123')
-            expect(commands[0].temp_id).toBe('mock-uuid-123')
+            expect(commands[0]!.uuid).toBe('mock-uuid-123')
+            expect(commands[0]!.temp_id).toBe('mock-uuid-123')
         })
 
         it('sends item_add command with content and due date', async () => {
@@ -800,7 +800,7 @@ describe('TodoistProvider', () => {
             const commands = JSON.parse(formData.get('commands') as string)
 
             expect(commands).toHaveLength(1)
-            expect(commands[0].type).toBe('item_add')
+            expect(commands[0]!.type).toBe('item_add')
             expect(commands[0].args.content).toBe('Task with due date')
             expect(commands[0].args.due).toEqual({ date: '2025-12-31' })
         })
@@ -843,8 +843,8 @@ describe('TodoistProvider', () => {
             const commands = JSON.parse(formData.get('commands') as string)
 
             expect(commands).toHaveLength(1)
-            expect(commands[0].type).toBe('item_close')
-            expect(commands[0].uuid).toBe('mock-uuid-123')
+            expect(commands[0]!.type).toBe('item_close')
+            expect(commands[0]!.uuid).toBe('mock-uuid-123')
             expect(commands[0].args.id).toBe('task-123')
         })
 
@@ -886,8 +886,8 @@ describe('TodoistProvider', () => {
             const commands = JSON.parse(formData.get('commands') as string)
 
             expect(commands).toHaveLength(1)
-            expect(commands[0].type).toBe('item_uncomplete')
-            expect(commands[0].uuid).toBe('mock-uuid-123')
+            expect(commands[0]!.type).toBe('item_uncomplete')
+            expect(commands[0]!.uuid).toBe('mock-uuid-123')
             expect(commands[0].args.id).toBe('task-456')
         })
 
@@ -929,8 +929,8 @@ describe('TodoistProvider', () => {
             const commands = JSON.parse(formData.get('commands') as string)
 
             expect(commands).toHaveLength(1)
-            expect(commands[0].type).toBe('item_delete')
-            expect(commands[0].uuid).toBe('mock-uuid-123')
+            expect(commands[0]!.type).toBe('item_delete')
+            expect(commands[0]!.uuid).toBe('mock-uuid-123')
             expect(commands[0].args.id).toBe('task-789')
         })
 
@@ -994,7 +994,7 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Active task')
+            expect(tasks[0]!.content).toBe('Active task')
         })
 
         it('includes unchecked tasks', async () => {
@@ -1027,7 +1027,7 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].checked).toBe(false)
+            expect(tasks[0]!.checked).toBe(false)
         })
 
         it('includes recently completed tasks (within 5 minutes)', async () => {
@@ -1064,7 +1064,7 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].checked).toBe(true)
+            expect(tasks[0]!.checked).toBe(true)
         })
 
         it('excludes completed tasks older than 5 minutes', async () => {
@@ -1132,7 +1132,7 @@ describe('TodoistProvider', () => {
             await backend.sync()
 
             const tasks = backend.getTasks()
-            expect(tasks[0].project_name).toBe('Work')
+            expect(tasks[0]!.project_name).toBe('Work')
         })
 
         it('enriches tasks with label_names', async () => {
@@ -1167,7 +1167,7 @@ describe('TodoistProvider', () => {
             await backend.sync()
 
             const tasks = backend.getTasks()
-            expect(tasks[0].label_names).toEqual(['Important', 'Urgent'])
+            expect(tasks[0]!.label_names).toEqual(['Important', 'Urgent'])
         })
 
         it('parses due dates without time as end of day', async () => {
@@ -1199,10 +1199,10 @@ describe('TodoistProvider', () => {
             await backend.sync()
 
             const tasks = backend.getTasks()
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
-            expect(tasks[0].has_time).toBe(false)
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.has_time).toBe(false)
 
-            const dueDate = tasks[0].due_date!
+            const dueDate = tasks[0]!.due_date!
             expect(dueDate.getHours()).toBe(23)
             expect(dueDate.getMinutes()).toBe(59)
             expect(dueDate.getSeconds()).toBe(59)
@@ -1237,8 +1237,8 @@ describe('TodoistProvider', () => {
             await backend.sync()
 
             const tasks = backend.getTasks()
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
-            expect(tasks[0].has_time).toBe(true)
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.has_time).toBe(true)
         })
 
         it('sorts tasks using TaskProvider.sortTasks', async () => {
@@ -1281,8 +1281,8 @@ describe('TodoistProvider', () => {
 
             const tasks = backend.getTasks()
             // Unchecked should be first
-            expect(tasks[0].id).toBe('2')
-            expect(tasks[1].id).toBe('1')
+            expect(tasks[0]!.id).toBe('2')
+            expect(tasks[1]!.id).toBe('1')
         })
     })
 })

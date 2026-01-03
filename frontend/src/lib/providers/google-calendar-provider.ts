@@ -1,11 +1,7 @@
 import * as googleAuth from './google-auth'
 import { createApiClient } from './google-auth'
 import { generateUUID } from '../uuid'
-import type {
-    CalendarProviderConfig,
-    CalendarEvent,
-    GoogleCalendar,
-} from '../types'
+import type { CalendarEvent, GoogleCalendar } from '../types'
 import { createLogger } from '../logger'
 import { AuthError, SyncError, ValidationError } from '../errors'
 
@@ -74,7 +70,7 @@ class GoogleCalendarProvider {
         options?: RequestInit
     ) => Promise<T>
 
-    constructor(_config: CalendarBackendConfig = {}) {
+    constructor() {
         this.baseUrl = 'https://www.googleapis.com/calendar/v3'
         this.dataKey = 'google_calendar_data'
         this.cacheExpiry = 5 * 60 * 1000 // 5 minutes

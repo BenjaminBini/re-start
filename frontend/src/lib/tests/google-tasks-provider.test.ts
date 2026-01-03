@@ -41,16 +41,16 @@ function createMockLocalStorage() {
 
 describe('GoogleTasksProvider', () => {
     let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
-    let mockApiRequest: ReturnType<typeof vi.fn>
+    let mockApiRequest: ReturnType<typeof vi.fn<[], Promise<unknown>>>
 
     beforeEach(() => {
         mockLocalStorage = createMockLocalStorage()
         vi.stubGlobal('localStorage', mockLocalStorage)
 
         // Reset mock implementations
-        mockApiRequest = vi.fn()
+        mockApiRequest = vi.fn<[], Promise<unknown>>()
         // createApiClient returns a function that will be used for API requests
-        vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest)
+        vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest as <T>(endpoint: string, options?: RequestInit) => Promise<T>)
         vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
         vi.mocked(googleAuth.ensureValidToken).mockResolvedValue('mock-token-123')
 
@@ -98,7 +98,7 @@ describe('GoogleTasksProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Existing task')
+            expect(tasks[0]!.content).toBe('Existing task')
         })
 
         it('loads default tasklist ID from localStorage', () => {
@@ -260,7 +260,7 @@ describe('GoogleTasksProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].project_name).toBe('Work Tasks')
+            expect(tasks[0]!.project_name).toBe('Work Tasks')
         })
 
         it('saves data to localStorage with timestamp', async () => {
@@ -277,7 +277,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const savedData = JSON.parse(
-                mockLocalStorage._store['google_tasks_data']
+                mockLocalStorage._store['google_tasks_data']!
             )
             expect(savedData.timestamp).toBeDefined()
             expect(savedData.timestamp).toBeGreaterThan(0)
@@ -375,7 +375,7 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce(mockTasklistsResponse)
                 .mockResolvedValueOnce(mockTasksResponse)
 
-            const backend = new GoogleTasksProvider()
+            void new GoogleTasksProvider()
 
             // Add a tasklist manually to trigger task fetching
             mockLocalStorage._store['google_tasks_data'] = JSON.stringify({
@@ -463,8 +463,8 @@ describe('GoogleTasksProvider', () => {
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Active task')
-            expect(tasks[0].checked).toBe(false)
+            expect(tasks[0]!.content).toBe('Active task')
+            expect(tasks[0]!.checked).toBe(false)
         })
 
         it('includes recently completed tasks (within 5 minutes)', () => {
@@ -493,8 +493,8 @@ describe('GoogleTasksProvider', () => {
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].checked).toBe(true)
-            expect(tasks[0].completed_at).toBe(recentCompletion)
+            expect(tasks[0]!.checked).toBe(true)
+            expect(tasks[0]!.completed_at).toBe(recentCompletion)
         })
 
         it('excludes completed tasks older than 5 minutes', () => {
@@ -545,8 +545,8 @@ describe('GoogleTasksProvider', () => {
             const backend = new GoogleTasksProvider()
             const tasks = backend.getTasks()
 
-            expect(tasks[0].project_id).toBe('work-list')
-            expect(tasks[0].project_name).toBe('Work Projects')
+            expect(tasks[0]!.project_id).toBe('work-list')
+            expect(tasks[0]!.project_name).toBe('Work Projects')
         })
 
         it('parses due dates as end of day (23:59:59)', () => {
@@ -570,10 +570,10 @@ describe('GoogleTasksProvider', () => {
             const backend = new GoogleTasksProvider()
             const tasks = backend.getTasks()
 
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
-            expect(tasks[0].has_time).toBe(false)
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.has_time).toBe(false)
 
-            const dueDate = tasks[0].due_date!
+            const dueDate = tasks[0]!.due_date!
             expect(dueDate.getHours()).toBe(23)
             expect(dueDate.getMinutes()).toBe(59)
             expect(dueDate.getSeconds()).toBe(59)
@@ -599,8 +599,8 @@ describe('GoogleTasksProvider', () => {
             const backend = new GoogleTasksProvider()
             const tasks = backend.getTasks()
 
-            expect(tasks[0].due_date).toBeNull()
-            expect(tasks[0].due).toBeNull()
+            expect(tasks[0]!.due_date).toBeNull()
+            expect(tasks[0]!.due).toBeNull()
         })
 
         it('sorts tasks using TaskProvider.sortTasks', () => {
@@ -632,8 +632,8 @@ describe('GoogleTasksProvider', () => {
             const tasks = backend.getTasks()
 
             // Active task should be first (unchecked tasks before checked)
-            expect(tasks[0].id).toBe('task2')
-            expect(tasks[1].id).toBe('task1')
+            expect(tasks[0]!.id).toBe('task2')
+            expect(tasks[1]!.id).toBe('task1')
         })
 
         it('sets label_names to empty array', () => {
@@ -656,8 +656,8 @@ describe('GoogleTasksProvider', () => {
             const backend = new GoogleTasksProvider()
             const tasks = backend.getTasks()
 
-            expect(tasks[0].labels).toEqual([])
-            expect(tasks[0].label_names).toEqual([])
+            expect(tasks[0]!.labels).toEqual([])
+            expect(tasks[0]!.label_names).toEqual([])
         })
     })
 
@@ -735,8 +735,8 @@ describe('GoogleTasksProvider', () => {
             const backend = new GoogleTasksProvider()
             await backend.addTask('Task', '2025-12-25T14:30:00')
 
-            const call = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(call[1].body as string)
+            const call = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((call[1] as { body: string }).body)
             expect(body.due).toBe('2025-12-25T00:00:00.000Z')
         })
 
@@ -795,8 +795,8 @@ describe('GoogleTasksProvider', () => {
             )
 
             // Verify completed timestamp is included
-            const call = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(call[1].body as string)
+            const call = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((call[1] as { body: string }).body)
             expect(body.completed).toBeDefined()
             expect(new Date(body.completed).getTime()).toBeGreaterThan(0)
         })

@@ -70,9 +70,9 @@ export function findWeekdays(_text: string, lower: string, now: Date, consider: 
     while ((m = WEEKDAY_REGEX.exec(lower))) {
         const modifier = m[1]?.trim()
         const word = m[2]
+        if (!word || !(word in WEEKDAYS)) continue
         const start = m.index
         const end = start + m[0].length
-        if (!(word in WEEKDAYS)) continue
 
         const target = WEEKDAYS[word]
         const base = startOfDay(now)
@@ -102,14 +102,16 @@ export function findMonthDates(_text: string, lower: string, now: Date, consider
     let m: RegExpExecArray | null
     const monthFirstRegex = new RegExp(MONTH_FIRST_PATTERN, 'gi')
     while ((m = monthFirstRegex.exec(lower))) {
-        const [, monthWord, dayToken, yearToken] = m
-        pushMonthMatch(m, monthWord, dayToken, yearToken, now, consider, 1)
+        const monthWord = m[1]
+        if (!monthWord) continue
+        pushMonthMatch(m, monthWord, m[2], m[3], now, consider, 1)
     }
 
     const dayFirstRegex = new RegExp(DAY_FIRST_PATTERN, 'gi')
     while ((m = dayFirstRegex.exec(lower))) {
-        const [, dayToken, monthWord, yearToken] = m
-        pushMonthMatch(m, monthWord, dayToken, yearToken, now, consider)
+        const monthWord = m[2]
+        if (!monthWord) continue
+        pushMonthMatch(m, monthWord, m[1], m[3], now, consider)
     }
 }
 
@@ -149,8 +151,11 @@ export function findNumericDates(lower: string, now: Date, consider: CandidateCo
         /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?=[\s,.;!?)\-]|$)/g
     let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
-        const part1 = parseInt(m[1], 10)
-        const part2 = parseInt(m[2], 10)
+        const p1 = m[1]
+        const p2 = m[2]
+        if (!p1 || !p2) continue
+        const part1 = parseInt(p1, 10)
+        const part2 = parseInt(p2, 10)
         if (Number.isNaN(part1) || Number.isNaN(part2)) continue
         let month: number
         let day: number
@@ -181,7 +186,9 @@ export function findOrdinalsOnly(lower: string, now: Date, consider: CandidateCo
     const regex = /\b(\d{1,2}(?:st|nd|rd|th))\b/g
     let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
-        const day = m[1] === 'first' ? 1 : parseDayNumber(m[1])
+        const ordinal = m[1]
+        if (!ordinal) continue
+        const day = ordinal === 'first' ? 1 : parseDayNumber(ordinal)
         if (!day) continue
         const base = startOfDay(now)
         let date = new Date(base.getFullYear(), base.getMonth(), day)

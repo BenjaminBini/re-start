@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import LocalStorageProvider from '../providers/localstorage-provider'
-import type { RawTask, EnrichedTask } from '../types'
 
 // Mock the UUID module
 vi.mock('../uuid', () => ({
@@ -69,7 +68,7 @@ describe('LocalStorageProvider', () => {
             expect(mockLocalStorage.getItem).toHaveBeenCalledWith('local_tasks')
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Test task')
+            expect(tasks[0]!.content).toBe('Test task')
         })
 
         it('returns empty items array when localStorage is empty', () => {
@@ -110,10 +109,10 @@ describe('LocalStorageProvider', () => {
 
             expect(mockLocalStorage.setItem).toHaveBeenCalled()
             const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+                mockLocalStorage._store['local_tasks']!
             )
             expect(savedData.items).toHaveLength(1)
-            expect(savedData.items[0].content).toBe('New task')
+            expect(savedData.items[0]!.content).toBe('New task')
         })
 
         it('persists task data correctly on completion', async () => {
@@ -140,8 +139,8 @@ describe('LocalStorageProvider', () => {
             const savedData = JSON.parse(
                 mockLocalStorage._store['local_tasks']
             )
-            expect(savedData.items[0].checked).toBe(true)
-            expect(savedData.items[0].completed_at).not.toBeNull()
+            expect(savedData.items[0]!.checked).toBe(true)
+            expect(savedData.items[0]!.completed_at).not.toBeNull()
         })
     })
 
@@ -185,7 +184,7 @@ describe('LocalStorageProvider', () => {
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].content).toBe('Active task')
+            expect(tasks[0]!.content).toBe('Active task')
         })
 
         it('includes unchecked tasks', () => {
@@ -210,7 +209,7 @@ describe('LocalStorageProvider', () => {
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].checked).toBe(false)
+            expect(tasks[0]!.checked).toBe(false)
         })
 
         it('includes recently completed tasks (within 5 minutes)', () => {
@@ -240,7 +239,7 @@ describe('LocalStorageProvider', () => {
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].checked).toBe(true)
+            expect(tasks[0]!.checked).toBe(true)
         })
 
         it('excludes completed tasks older than 5 minutes', () => {
@@ -293,8 +292,8 @@ describe('LocalStorageProvider', () => {
             const backend = new LocalStorageProvider({})
             const tasks = backend.getTasks()
 
-            expect(tasks[0].project_name).toBe('')
-            expect(tasks[0].label_names).toEqual([])
+            expect(tasks[0]!.project_name).toBe('')
+            expect(tasks[0]!.label_names).toEqual([])
         })
 
         it('parses due dates without time as end of day', () => {
@@ -318,10 +317,10 @@ describe('LocalStorageProvider', () => {
             const backend = new LocalStorageProvider({})
             const tasks = backend.getTasks()
 
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
-            expect(tasks[0].has_time).toBe(false)
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.has_time).toBe(false)
             // Should be the date with 23:59:59 in local time
-            const dueDate = tasks[0].due_date!
+            const dueDate = tasks[0]!.due_date!
             expect(dueDate.getFullYear()).toBe(2025)
             expect(dueDate.getMonth()).toBe(11) // December (0-indexed)
             expect(dueDate.getDate()).toBe(15)
@@ -351,10 +350,10 @@ describe('LocalStorageProvider', () => {
             const backend = new LocalStorageProvider({})
             const tasks = backend.getTasks()
 
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
-            expect(tasks[0].has_time).toBe(true)
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.has_time).toBe(true)
             // Verify the date was parsed correctly (handles timezone)
-            const dueDate = tasks[0].due_date!
+            const dueDate = tasks[0]!.due_date!
             const expectedDate = new Date('2025-12-15T14:30:00')
             expect(dueDate.getTime()).toBe(expectedDate.getTime())
         })
@@ -392,10 +391,10 @@ describe('LocalStorageProvider', () => {
             const tasks = backend.getTasks()
 
             // Unchecked task should be first (sortTasks behavior)
-            expect(tasks[0].id).toBe('2')
-            expect(tasks[0].checked).toBe(false)
-            expect(tasks[1].id).toBe('1')
-            expect(tasks[1].checked).toBe(true)
+            expect(tasks[0]!.id).toBe('2')
+            expect(tasks[0]!.checked).toBe(false)
+            expect(tasks[1]!.id).toBe('1')
+            expect(tasks[1]!.checked).toBe(true)
         })
     })
 
@@ -407,8 +406,8 @@ describe('LocalStorageProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].id).toBe('mock-uuid-123')
-            expect(tasks[0].content).toBe('New task')
+            expect(tasks[0]!.id).toBe('mock-uuid-123')
+            expect(tasks[0]!.content).toBe('New task')
         })
 
         it('adds task without due date', async () => {
@@ -417,8 +416,8 @@ describe('LocalStorageProvider', () => {
             await backend.addTask('Task without due date', null)
 
             const tasks = backend.getTasks()
-            expect(tasks[0].due).toBeNull()
-            expect(tasks[0].due_date).toBeNull()
+            expect(tasks[0]!.due).toBeNull()
+            expect(tasks[0]!.due_date).toBeNull()
         })
 
         it('adds task with due date', async () => {
@@ -427,8 +426,8 @@ describe('LocalStorageProvider', () => {
             await backend.addTask('Task with due date', '2025-12-20')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].due).toEqual({ date: '2025-12-20' })
-            expect(tasks[0].due_date).toBeInstanceOf(Date)
+            expect(tasks[0]!.due).toEqual({ date: '2025-12-20' })
+            expect(tasks[0]!.due_date).toBeInstanceOf(Date)
         })
 
         it('sets initial task properties correctly', async () => {
@@ -437,11 +436,11 @@ describe('LocalStorageProvider', () => {
             await backend.addTask('New task', null)
 
             const tasks = backend.getTasks()
-            expect(tasks[0].checked).toBe(false)
-            expect(tasks[0].completed_at).toBeNull()
-            expect(tasks[0].project_id).toBeNull()
-            expect(tasks[0].labels).toEqual([])
-            expect(tasks[0].is_deleted).toBe(false)
+            expect(tasks[0]!.checked).toBe(false)
+            expect(tasks[0]!.completed_at).toBeNull()
+            expect(tasks[0]!.project_id).toBeNull()
+            expect(tasks[0]!.labels).toEqual([])
+            expect(tasks[0]!.is_deleted).toBe(false)
         })
 
         it('sets child_order based on current task count', async () => {
@@ -468,7 +467,7 @@ describe('LocalStorageProvider', () => {
             const savedData = JSON.parse(
                 mockLocalStorage._store['local_tasks']
             )
-            expect(savedData.items[1].child_order).toBe(1)
+            expect(savedData.items[1]!.child_order).toBe(1)
         })
 
         it('persists the new task to localStorage', async () => {
@@ -481,9 +480,9 @@ describe('LocalStorageProvider', () => {
                 expect.any(String)
             )
             const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+                mockLocalStorage._store['local_tasks']!
             )
-            expect(savedData.items[0].content).toBe('Persist me')
+            expect(savedData.items[0]!.content).toBe('Persist me')
         })
     })
 
@@ -510,7 +509,7 @@ describe('LocalStorageProvider', () => {
             await backend.completeTask('task-1')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].checked).toBe(true)
+            expect(tasks[0]!.checked).toBe(true)
         })
 
         it('sets completed_at timestamp', async () => {
@@ -535,8 +534,8 @@ describe('LocalStorageProvider', () => {
             await backend.completeTask('task-1')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].completed_at).not.toBeNull()
-            expect(new Date(tasks[0].completed_at!)).toBeInstanceOf(Date)
+            expect(tasks[0]!.completed_at).not.toBeNull()
+            expect(new Date(tasks[0]!.completed_at!)).toBeInstanceOf(Date)
         })
 
         it('persists completion to localStorage', async () => {
@@ -563,8 +562,8 @@ describe('LocalStorageProvider', () => {
             const savedData = JSON.parse(
                 mockLocalStorage._store['local_tasks']
             )
-            expect(savedData.items[0].checked).toBe(true)
-            expect(savedData.items[0].completed_at).not.toBeNull()
+            expect(savedData.items[0]!.checked).toBe(true)
+            expect(savedData.items[0]!.completed_at).not.toBeNull()
         })
 
         it('does nothing if task ID not found', async () => {
@@ -589,7 +588,7 @@ describe('LocalStorageProvider', () => {
             await backend.completeTask('non-existent-id')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].checked).toBe(false)
+            expect(tasks[0]!.checked).toBe(false)
         })
     })
 
@@ -616,7 +615,7 @@ describe('LocalStorageProvider', () => {
             await backend.uncompleteTask('task-1')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].checked).toBe(false)
+            expect(tasks[0]!.checked).toBe(false)
         })
 
         it('clears completed_at timestamp', async () => {
@@ -641,7 +640,7 @@ describe('LocalStorageProvider', () => {
             await backend.uncompleteTask('task-1')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].completed_at).toBeNull()
+            expect(tasks[0]!.completed_at).toBeNull()
         })
 
         it('persists uncomplete to localStorage', async () => {
@@ -668,8 +667,8 @@ describe('LocalStorageProvider', () => {
             const savedData = JSON.parse(
                 mockLocalStorage._store['local_tasks']
             )
-            expect(savedData.items[0].checked).toBe(false)
-            expect(savedData.items[0].completed_at).toBeNull()
+            expect(savedData.items[0]!.checked).toBe(false)
+            expect(savedData.items[0]!.completed_at).toBeNull()
         })
 
         it('does nothing if task ID not found', async () => {
@@ -694,7 +693,7 @@ describe('LocalStorageProvider', () => {
             await backend.uncompleteTask('non-existent-id')
 
             const tasks = backend.getTasks()
-            expect(tasks[0].checked).toBe(true)
+            expect(tasks[0]!.checked).toBe(true)
         })
     })
 
@@ -733,7 +732,7 @@ describe('LocalStorageProvider', () => {
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
-            expect(tasks[0].id).toBe('task-2')
+            expect(tasks[0]!.id).toBe('task-2')
         })
 
         it('persists deletion to localStorage', async () => {

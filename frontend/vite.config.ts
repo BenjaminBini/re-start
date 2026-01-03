@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { svelteInspector } from '@sveltejs/vite-plugin-svelte-inspector'

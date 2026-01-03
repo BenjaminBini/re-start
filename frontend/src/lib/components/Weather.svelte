@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte'
+    import { onMount, untrack } from 'svelte'
     import WeatherAPI from '../weather-api'
     import { settings } from '../settings-store.svelte'
     import { Panel, Text, Row, Column, Button } from './ui'
@@ -29,12 +29,13 @@
     }
 
     $effect(() => {
-        const _lat = settings.latitude
-        const _lon = settings.longitude
-        const _locationMode = settings.locationMode
-        const _tempUnit = settings.tempUnit
-        const _speedUnit = settings.speedUnit
-        const _timeFormat = settings.timeFormat
+        // Track dependencies - void prevents unused variable warnings
+        void settings.latitude
+        void settings.longitude
+        void settings.locationMode
+        void settings.tempUnit
+        void settings.speedUnit
+        void settings.timeFormat
 
         if (untrack(() => initialLoad)) {
             initialLoad = false
@@ -115,8 +116,10 @@
                     settings.speedUnit
                 )
                 const freshData = api.getWeather(settings.timeFormat)
-                current = freshData.current
-                forecast = freshData.forecast
+                if (freshData) {
+                    current = freshData.current
+                    forecast = freshData.forecast
+                }
             }
         } catch (err) {
             error = (err as Error).message
@@ -134,13 +137,10 @@
 
     onMount(() => {
         loadWeather()
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-    })
-
-    onDestroy(() => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
     })
 </script>
+
+<svelte:document onvisibilitychange={handleVisibilityChange} />
 
 <Panel
     label={syncing ? 'syncing...' : 'weather'}

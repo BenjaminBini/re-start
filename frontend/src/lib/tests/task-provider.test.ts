@@ -35,10 +35,10 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[0].checked).toBe(false)
-            expect(sorted[1].id).toBe('1')
-            expect(sorted[1].checked).toBe(true)
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[0]!.checked).toBe(false)
+            expect(sorted[1]!.id).toBe('1')
+            expect(sorted[1]!.checked).toBe(true)
         })
 
         it('maintains order of all unchecked tasks before all checked tasks', () => {
@@ -51,10 +51,10 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].checked).toBe(false)
-            expect(sorted[1].checked).toBe(false)
-            expect(sorted[2].checked).toBe(true)
-            expect(sorted[3].checked).toBe(true)
+            expect(sorted[0]!.checked).toBe(false)
+            expect(sorted[1]!.checked).toBe(false)
+            expect(sorted[2]!.checked).toBe(true)
+            expect(sorted[3]!.checked).toBe(true)
         })
     })
 
@@ -81,9 +81,9 @@ describe('TaskProvider.sortTasks', () => {
             const sorted = TaskProvider.sortTasks(tasks)
 
             // Most recent (Dec 3) should be first
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[1].id).toBe('3')
-            expect(sorted[2].id).toBe('1')
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[1]!.id).toBe('3')
+            expect(sorted[2]!.id).toBe('1')
         })
 
         it('handles checked tasks without completed_at', () => {
@@ -100,8 +100,8 @@ describe('TaskProvider.sortTasks', () => {
 
             // Should not throw and maintain some order
             expect(sorted).toHaveLength(2)
-            expect(sorted[0].checked).toBe(true)
-            expect(sorted[1].checked).toBe(true)
+            expect(sorted[0]!.checked).toBe(true)
+            expect(sorted[1]!.checked).toBe(true)
         })
     })
 
@@ -117,10 +117,10 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[0].due_date).not.toBeNull()
-            expect(sorted[1].id).toBe('1')
-            expect(sorted[1].due_date).toBeNull()
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[0]!.due_date).not.toBeNull()
+            expect(sorted[1]!.id).toBe('1')
+            expect(sorted[1]!.due_date).toBeNull()
         })
 
         it('applies due date ordering only to unchecked tasks', () => {
@@ -136,10 +136,10 @@ describe('TaskProvider.sortTasks', () => {
             const sorted = TaskProvider.sortTasks(tasks)
 
             // Unchecked task should come first regardless of due date
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[0].checked).toBe(false)
-            expect(sorted[1].id).toBe('1')
-            expect(sorted[1].checked).toBe(true)
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[0]!.checked).toBe(false)
+            expect(sorted[1]!.id).toBe('1')
+            expect(sorted[1]!.checked).toBe(true)
         })
     })
 
@@ -162,9 +162,9 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2') // Dec 10
-            expect(sorted[1].id).toBe('1') // Dec 15
-            expect(sorted[2].id).toBe('3') // Dec 20
+            expect(sorted[0]!.id).toBe('2') // Dec 10
+            expect(sorted[1]!.id).toBe('1') // Dec 15
+            expect(sorted[2]!.id).toBe('3') // Dec 20
         })
 
         it('sorts tasks with same due date by child_order', () => {
@@ -177,9 +177,9 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2') // child_order 0
-            expect(sorted[1].id).toBe('3') // child_order 1
-            expect(sorted[2].id).toBe('1') // child_order 2
+            expect(sorted[0]!.id).toBe('2') // child_order 0
+            expect(sorted[1]!.id).toBe('3') // child_order 1
+            expect(sorted[2]!.id).toBe('1') // child_order 2
         })
     })
 
@@ -202,10 +202,10 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[0].project_id).toBeNull()
-            expect(sorted[1].id).toBe('1')
-            expect(sorted[1].project_id).toBe('project-123')
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[0]!.project_id).toBeNull()
+            expect(sorted[1]!.id).toBe('1')
+            expect(sorted[1]!.project_id).toBe('project-123')
         })
 
         it('treats Inbox as non-project', () => {
@@ -226,10 +226,10 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[0].project_name).toBe('Inbox')
-            expect(sorted[1].id).toBe('1')
-            expect(sorted[1].project_name).toBe('Work')
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[0]!.project_name).toBe('Inbox')
+            expect(sorted[1]!.id).toBe('1')
+            expect(sorted[1]!.project_name).toBe('Work')
         })
 
         it('does not apply project sorting to tasks with due dates', () => {
@@ -251,8 +251,8 @@ describe('TaskProvider.sortTasks', () => {
             const sorted = TaskProvider.sortTasks(tasks)
 
             // Should sort by due date, not project
-            expect(sorted[0].id).toBe('2') // Earlier due date
-            expect(sorted[1].id).toBe('1')
+            expect(sorted[0]!.id).toBe('2') // Earlier due date
+            expect(sorted[1]!.id).toBe('1')
         })
     })
 
@@ -266,9 +266,9 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2') // child_order 1
-            expect(sorted[1].id).toBe('3') // child_order 3
-            expect(sorted[2].id).toBe('1') // child_order 5
+            expect(sorted[0]!.id).toBe('2') // child_order 1
+            expect(sorted[1]!.id).toBe('3') // child_order 3
+            expect(sorted[2]!.id).toBe('1') // child_order 5
         })
 
         it('uses child_order for tasks without due dates in same project state', () => {
@@ -289,8 +289,8 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].id).toBe('2')
-            expect(sorted[1].id).toBe('1')
+            expect(sorted[0]!.id).toBe('2')
+            expect(sorted[1]!.id).toBe('1')
         })
     })
 
@@ -339,15 +339,15 @@ describe('TaskProvider.sortTasks', () => {
 
             // Expected order:
             // 1. Unchecked with earliest due date
-            expect(sorted[0].id).toBe('due-2')
+            expect(sorted[0]!.id).toBe('due-2')
             // 2. Unchecked with later due date
-            expect(sorted[1].id).toBe('due-1')
+            expect(sorted[1]!.id).toBe('due-1')
             // 3. Unchecked without due date, no project
-            expect(sorted[2].id).toBe('no-due-no-project')
+            expect(sorted[2]!.id).toBe('no-due-no-project')
             // 4. Unchecked without due date, with project
-            expect(sorted[3].id).toBe('no-due-with-project')
+            expect(sorted[3]!.id).toBe('no-due-with-project')
             // 5. Checked task
-            expect(sorted[4].id).toBe('checked-1')
+            expect(sorted[4]!.id).toBe('checked-1')
         })
 
         it('handles multiple checked tasks with different completion times', () => {
@@ -373,11 +373,11 @@ describe('TaskProvider.sortTasks', () => {
             const sorted = TaskProvider.sortTasks(tasks)
 
             // Unchecked first
-            expect(sorted[0].id).toBe('unchecked')
+            expect(sorted[0]!.id).toBe('unchecked')
             // Then checked by most recent completion
-            expect(sorted[1].id).toBe('checked-recent')
-            expect(sorted[2].id).toBe('checked-middle')
-            expect(sorted[3].id).toBe('checked-old')
+            expect(sorted[1]!.id).toBe('checked-recent')
+            expect(sorted[2]!.id).toBe('checked-middle')
+            expect(sorted[3]!.id).toBe('checked-old')
         })
 
         it('handles empty task array', () => {
@@ -390,7 +390,7 @@ describe('TaskProvider.sortTasks', () => {
             const tasks: EnrichedTask[] = [createTask({ id: 'only-task' })]
             const sorted = TaskProvider.sortTasks(tasks)
             expect(sorted).toHaveLength(1)
-            expect(sorted[0].id).toBe('only-task')
+            expect(sorted[0]!.id).toBe('only-task')
         })
 
         it('does not mutate original array', () => {
@@ -399,13 +399,13 @@ describe('TaskProvider.sortTasks', () => {
                 createTask({ id: '2', child_order: 1 }),
             ]
 
-            const original = [...tasks]
+            void [...tasks]
             TaskProvider.sortTasks(tasks)
 
             // Original array should be mutated (sort mutates in place)
             // But we can verify the sort worked
-            expect(tasks[0].id).toBe('2')
-            expect(tasks[1].id).toBe('1')
+            expect(tasks[0]!.id).toBe('2')
+            expect(tasks[1]!.id).toBe('1')
         })
 
         it('handles tasks with identical properties using child_order', () => {
@@ -438,9 +438,9 @@ describe('TaskProvider.sortTasks', () => {
 
             const sorted = TaskProvider.sortTasks(tasks)
 
-            expect(sorted[0].child_order).toBe(1)
-            expect(sorted[1].child_order).toBe(2)
-            expect(sorted[2].child_order).toBe(3)
+            expect(sorted[0]!.child_order).toBe(1)
+            expect(sorted[1]!.child_order).toBe(2)
+            expect(sorted[2]!.child_order).toBe(3)
         })
     })
 })

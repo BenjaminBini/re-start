@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte'
+    import { onMount, untrack } from 'svelte'
     import { createTaskProvider } from '../providers/index'
     import { settings } from '../settings-store.svelte'
     import { authStore } from '../stores/auth-store'
@@ -7,7 +7,6 @@
     import {
         parseSmartDate,
         stripDateMatch,
-        formatTaskDue,
         formatRelativeDate,
     } from '../date-matcher'
     import { Panel, Text, Row, Link, ScrollList, Button } from './ui'
@@ -44,8 +43,6 @@
         const backend = settings.taskBackend
         const token = settings.todoistApiToken
         const authStatus = $authStore.status
-
-        console.log('[Tasks] Effect triggered:', { backend, authStatus })
 
         if (untrack(() => initialLoad)) {
             initialLoad = false
@@ -84,9 +81,9 @@
 
         try {
             if (backend === 'google-tasks') {
-                api = createTaskProvider(backend)
+                api = createTaskProvider(backend, {})
             } else {
-                api = createTaskProvider(backend, { token })
+                api = createTaskProvider(backend, { apiToken: token })
             }
 
             if (clearLocalData) {
@@ -116,7 +113,7 @@
     }
 
     async function loadTasks(showSyncing = false): Promise<void> {
-        if (syncInProgress) return
+        if (syncInProgress || !api) return
         syncInProgress = true
         try {
             if (showSyncing) syncing = true
@@ -142,7 +139,7 @@
         if (parsedDate?.match) {
             const cleaned = stripDateMatch(raw, parsedDate.match)
             content = cleaned || raw
-            due = formatTaskDue(parsedDate.date, parsedDate.hasTime)
+            due = parsedDate.date
         }
         try {
             addingTask = true
@@ -175,6 +172,7 @@
                     : task
             )
 
+            if (!api) return
             if (checked) {
                 await api.completeTask(taskId)
             } else {
@@ -205,7 +203,7 @@
     }
 
     function isTaskOverdue(task: EnrichedTask): boolean {
-        if (!task.due || task.checked) return false
+        if (!task.due || task.checked || !task.due_date) return false
         const now = new Date()
         return task.due_date.getTime() < now.getTime()
     }
@@ -223,13 +221,10 @@
             settings.todoistApiToken,
             $authStore.status
         )
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-    })
-
-    onDestroy(() => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
     })
 </script>
+
+<svelte:document onvisibilitychange={handleVisibilityChange} />
 
 <Panel
     label={syncing ? 'syncing...' : 'tasks'}

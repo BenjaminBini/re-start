@@ -259,7 +259,9 @@ class WeatherAPI {
         // Find the current or next hour in the forecast
         let currentIndex = 0
         for (let i = 0; i < hourlyData.time.length; i++) {
-            const forecastTime = new Date(hourlyData.time[i])
+            const timeStr = hourlyData.time[i]
+            if (!timeStr) continue
+            const forecastTime = new Date(timeStr)
             const now = new Date(currentTime)
             if (forecastTime >= now) {
                 currentIndex = i

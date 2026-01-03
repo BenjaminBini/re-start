@@ -43,16 +43,16 @@ function createMockLocalStorage() {
 
 describe('GoogleCalendarProvider', () => {
     let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
-    let mockApiRequest: ReturnType<typeof vi.fn>
+    let mockApiRequest: ReturnType<typeof vi.fn<[], Promise<unknown>>>
 
     beforeEach(() => {
         mockLocalStorage = createMockLocalStorage()
         vi.stubGlobal('localStorage', mockLocalStorage)
 
         // Reset mock implementations
-        mockApiRequest = vi.fn()
+        mockApiRequest = vi.fn<[], Promise<unknown>>()
         // createApiClient returns a function that will be used for API requests
-        vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest)
+        vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest as <T>(endpoint: string, options?: RequestInit) => Promise<T>)
         vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
 
         vi.clearAllMocks()
@@ -101,7 +101,7 @@ describe('GoogleCalendarProvider', () => {
 
             const events = backend.getEvents()
             expect(events).toHaveLength(1)
-            expect(events[0].title).toBe('Meeting')
+            expect(events[0]!.title).toBe('Meeting')
         })
 
         it('handles corrupted JSON in localStorage', () => {
@@ -265,7 +265,7 @@ describe('GoogleCalendarProvider', () => {
             const result = await backend.sync()
 
             expect(result.calendars).toHaveLength(1)
-            expect(result.calendars![0].id).toBe('cal1')
+            expect(result.calendars![0]!.id).toBe('cal1')
         })
 
         it('enriches events with calendar info', async () => {
@@ -305,8 +305,8 @@ describe('GoogleCalendarProvider', () => {
 
             const events = backend.getEvents()
             expect(events).toHaveLength(1)
-            expect(events[0].calendarName).toBe('Work Calendar')
-            expect(events[0].calendarColor).toBe('#ff0000')
+            expect(events[0]!.calendarName).toBe('Work Calendar')
+            expect(events[0]!.calendarColor).toBe('#ff0000')
         })
 
         it('saves data to localStorage with timestamp', async () => {
@@ -323,7 +323,7 @@ describe('GoogleCalendarProvider', () => {
             )
 
             const savedData = JSON.parse(
-                mockLocalStorage._store['google_calendar_data']
+                mockLocalStorage._store['google_calendar_data']!
             )
             expect(savedData.timestamp).toBeDefined()
             expect(savedData.timestamp).toBeGreaterThan(0)
@@ -369,9 +369,9 @@ describe('GoogleCalendarProvider', () => {
             await backend.sync()
 
             // Verify API call includes timeMin and timeMax parameters
-            const eventsCall = mockApiRequest.mock.calls.find((call) =>
-                call[0].includes('/events?')
-            )
+            const eventsCall = mockApiRequest.mock.calls.find((call: unknown[]) =>
+                (call[0] as string).includes('/events?')
+            ) as unknown[] | undefined
             expect(eventsCall).toBeDefined()
             expect(eventsCall![0]).toContain('timeMin=')
             expect(eventsCall![0]).toContain('timeMax=')
@@ -536,7 +536,7 @@ describe('GoogleCalendarProvider', () => {
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
-            expect(events[0].title).toBe('Active Event')
+            expect(events[0]!.title).toBe('Active Event')
         })
 
         it('processes all-day events correctly', () => {
@@ -559,9 +559,9 @@ describe('GoogleCalendarProvider', () => {
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
-            expect(events[0].isAllDay).toBe(true)
-            expect(events[0].startTime).toBeInstanceOf(Date)
-            expect(events[0].endTime).toBeInstanceOf(Date)
+            expect(events[0]!.isAllDay).toBe(true)
+            expect(events[0]!.startTime).toBeInstanceOf(Date)
+            expect(events[0]!.endTime).toBeInstanceOf(Date)
         })
 
         it('processes timed events correctly', () => {
@@ -587,9 +587,9 @@ describe('GoogleCalendarProvider', () => {
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
-            expect(events[0].isAllDay).toBe(false)
-            expect(events[0].startTime.getTime()).toBe(startTime.getTime())
-            expect(events[0].endTime.getTime()).toBe(endTime.getTime())
+            expect(events[0]!.isAllDay).toBe(false)
+            expect(events[0]!.startTime.getTime()).toBe(startTime.getTime())
+            expect(events[0]!.endTime.getTime()).toBe(endTime.getTime())
         })
 
         it('sets isPast flag correctly for past events', () => {
@@ -614,8 +614,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].isPast).toBe(true)
-            expect(events[0].isOngoing).toBe(false)
+            expect(events[0]!.isPast).toBe(true)
+            expect(events[0]!.isOngoing).toBe(false)
         })
 
         it('sets isOngoing flag correctly for ongoing events', () => {
@@ -640,8 +640,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].isOngoing).toBe(true)
-            expect(events[0].isPast).toBe(false)
+            expect(events[0]!.isOngoing).toBe(true)
+            expect(events[0]!.isPast).toBe(false)
         })
 
         it('sets isPast and isOngoing correctly for future events', () => {
@@ -666,8 +666,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].isPast).toBe(false)
-            expect(events[0].isOngoing).toBe(false)
+            expect(events[0]!.isPast).toBe(false)
+            expect(events[0]!.isOngoing).toBe(false)
         })
 
         it('sorts all-day events before timed events', () => {
@@ -699,8 +699,8 @@ describe('GoogleCalendarProvider', () => {
             const events = backend.getEvents()
 
             expect(events).toHaveLength(2)
-            expect(events[0].title).toBe('All Day Event')
-            expect(events[1].title).toBe('Timed Event')
+            expect(events[0]!.title).toBe('All Day Event')
+            expect(events[1]!.title).toBe('Timed Event')
         })
 
         it('sorts timed events by start time', () => {
@@ -734,8 +734,8 @@ describe('GoogleCalendarProvider', () => {
             const events = backend.getEvents()
 
             expect(events).toHaveLength(2)
-            expect(events[0].title).toBe('Earlier Event')
-            expect(events[1].title).toBe('Later Event')
+            expect(events[0]!.title).toBe('Earlier Event')
+            expect(events[1]!.title).toBe('Later Event')
         })
 
         it('handles events without titles', () => {
@@ -760,7 +760,7 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].title).toBe('(No title)')
+            expect(events[0]!.title).toBe('(No title)')
         })
 
         it('handles events with all optional fields', () => {
@@ -792,17 +792,17 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].title).toBe('Meeting')
-            expect(events[0].description).toBe('Team standup')
-            expect(events[0].location).toBe('Conference Room A')
-            expect(events[0].hangoutLink).toBe(
+            expect(events[0]!.title).toBe('Meeting')
+            expect(events[0]!.description).toBe('Team standup')
+            expect(events[0]!.location).toBe('Conference Room A')
+            expect(events[0]!.hangoutLink).toBe(
                 'https://meet.google.com/abc-defg-hij'
             )
-            expect(events[0].htmlLink).toBe(
+            expect(events[0]!.htmlLink).toBe(
                 'https://calendar.google.com/event?id=event1'
             )
-            expect(events[0].calendarName).toBe('Work Calendar')
-            expect(events[0].calendarColor).toBe('#ff0000')
+            expect(events[0]!.calendarName).toBe('Work Calendar')
+            expect(events[0]!.calendarColor).toBe('#ff0000')
         })
 
         it('handles events with missing optional fields', () => {
@@ -828,12 +828,12 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const events = backend.getEvents()
 
-            expect(events[0].description).toBe('')
-            expect(events[0].location).toBe('')
-            expect(events[0].hangoutLink).toBe('')
-            expect(events[0].htmlLink).toBe('')
-            expect(events[0].calendarName).toBe('')
-            expect(events[0].calendarColor).toBe('')
+            expect(events[0]!.description).toBe('')
+            expect(events[0]!.location).toBe('')
+            expect(events[0]!.hangoutLink).toBe('')
+            expect(events[0]!.htmlLink).toBe('')
+            expect(events[0]!.calendarName).toBe('')
+            expect(events[0]!.calendarColor).toBe('')
         })
     })
 
@@ -859,8 +859,8 @@ describe('GoogleCalendarProvider', () => {
             const calendars = backend.getCalendars()
 
             expect(calendars).toHaveLength(2)
-            expect(calendars[0].id).toBe('cal1')
-            expect(calendars[1].id).toBe('cal2')
+            expect(calendars[0]!.id).toBe('cal1')
+            expect(calendars[1]!.id).toBe('cal2')
         })
     })
 
@@ -903,10 +903,10 @@ describe('GoogleCalendarProvider', () => {
             )
 
             expect(calendars).toHaveLength(2)
-            expect(calendars[0].id).toBe('cal1')
-            expect(calendars[0].name).toBe('Work')
-            expect(calendars[0].color).toBe('#ff0000')
-            expect(calendars[0].primary).toBe(true)
+            expect(calendars[0]!.id).toBe('cal1')
+            expect(calendars[0]!.name).toBe('Work')
+            expect(calendars[0]!.color).toBe('#ff0000')
+            expect(calendars[0]!.primary).toBe(true)
         })
 
         it('handles calendars without background color', async () => {
@@ -925,7 +925,7 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const calendars = await backend.fetchCalendarList()
 
-            expect(calendars[0].color).toBe('')
+            expect(calendars[0]!.color).toBe('')
         })
 
         it('handles calendars without primary flag', async () => {
@@ -944,7 +944,7 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             const calendars = await backend.fetchCalendarList()
 
-            expect(calendars[0].primary).toBe(false)
+            expect(calendars[0]!.primary).toBe(false)
         })
 
         it('handles empty calendar list', async () => {
@@ -1029,8 +1029,8 @@ describe('GoogleCalendarProvider', () => {
 
             expect(uuid.generateUUID).toHaveBeenCalled()
 
-            const createCall = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(createCall[1].body as string)
+            const createCall = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((createCall[1] as { body: string }).body)
             expect(body.conferenceData.createRequest.requestId).toBe(
                 'mock-uuid-123'
             )
@@ -1049,8 +1049,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             await backend.createMeetLink()
 
-            const createCall = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(createCall[1].body as string)
+            const createCall = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((createCall[1] as { body: string }).body)
             expect(
                 body.conferenceData.createRequest.conferenceSolutionKey.type
             ).toBe('hangoutsMeet')
@@ -1072,8 +1072,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             await backend.createMeetLink()
 
-            const createCall = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(createCall[1].body as string)
+            const createCall = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((createCall[1] as { body: string }).body)
 
             const startTime = new Date(body.start.dateTime)
             const endTime = new Date(body.end.dateTime)
@@ -1098,8 +1098,8 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             await backend.createMeetLink()
 
-            const createCall = mockApiRequest.mock.calls[0]
-            const body = JSON.parse(createCall[1].body as string)
+            const createCall = mockApiRequest.mock.calls[0] as unknown[]
+            const body = JSON.parse((createCall[1] as { body: string }).body)
 
             expect(body.start.timeZone).toBeDefined()
             expect(body.end.timeZone).toBeDefined()

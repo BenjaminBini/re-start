@@ -16,7 +16,10 @@ export function findTimeWithAmPm(lower: string, considerTime: TimeConsumer): voi
     const regex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)\b/g
     let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
-        const hour = parseInt(m[1], 10)
+        const hourStr = m[1]
+        const ampmStr = m[3]
+        if (!hourStr || !ampmStr) continue
+        const hour = parseInt(hourStr, 10)
         const minute = m[2] ? parseInt(m[2], 10) : 0
         if (hour > 24 || minute > 59) continue
         considerTime({
@@ -24,7 +27,7 @@ export function findTimeWithAmPm(lower: string, considerTime: TimeConsumer): voi
             end: m.index + m[0].length,
             hour,
             minute,
-            ampm: m[3] as 'am' | 'pm',
+            ampm: ampmStr as 'am' | 'pm',
         })
     }
 }
@@ -36,11 +39,14 @@ export function findTime24h(lower: string, considerTime: TimeConsumer): void {
     const regex = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
     let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
+        const hourStr = m[1]
+        const minStr = m[2]
+        if (!hourStr || !minStr) continue
         considerTime({
             start: m.index,
             end: m.index + m[0].length,
-            hour: parseInt(m[1], 10),
-            minute: parseInt(m[2], 10),
+            hour: parseInt(hourStr, 10),
+            minute: parseInt(minStr, 10),
             ampm: null,
         })
     }
@@ -54,7 +60,9 @@ export function findBareHours(lower: string, considerTime: TimeConsumer): void {
     const regex = /\b([0-2]?\d)\b/g
     let m: RegExpExecArray | null
     while ((m = regex.exec(lower))) {
-        const hour = parseInt(m[1], 10)
+        const hourStr = m[1]
+        if (!hourStr) continue
+        const hour = parseInt(hourStr, 10)
         if (hour > 23) continue
         considerTime({
             start: m.index,

@@ -44,7 +44,8 @@
     }
 
     function applyTheme(themeName: string): void {
-        const theme = themes[themeName] || themes['default']
+        const theme = themes[themeName] ?? themes['default']
+        if (!theme) return
         const root = document.documentElement
         for (const [key, value] of Object.entries(theme.colors)) {
             root.style.setProperty(key, value)
@@ -63,19 +64,7 @@
         applyTheme(settings.currentTheme)
     })
 
-    $effect(() => {
-        document.title = settings.tabTitle || '~'
-    })
-
-    $effect(() => {
-        let styleEl = document.getElementById('custom-css')
-        if (!styleEl) {
-            styleEl = document.createElement('style')
-            styleEl.id = 'custom-css'
-            document.head.appendChild(styleEl)
-        }
-        styleEl.textContent = settings.customCSS || ''
-    })
+    // Title and custom CSS now handled via <svelte:head> in markup
 
     $effect(() => {
         saveSettings(settings)
@@ -83,9 +72,7 @@
 
     // Handle OAuth callback on page load
     const authResult = handleAuthCallback()
-    if (authResult?.success) {
-        console.log('[App] OAuth callback success')
-    } else if (authResult?.error) {
+    if (authResult?.error) {
         console.error('[App] Auth error:', authResult.error)
     }
 
@@ -94,26 +81,15 @@
 
     // Try to restore session if we have a stored user ID
     if (hasStoredUserId() && !authResult) {
-        console.log('[App] Attempting session restore...')
         tryRestoreSession()
     }
 
-    // Sync settings with auth state
+    // Sync settings with auth state (saveSettings handled by general effect above)
     $effect(() => {
-        const state = $authStore
-        console.log('[App] Auth state:', state.status)
-        settings.googleTasksSignedIn = state.status === 'authenticated'
-        saveSettings(settings)
+        settings.googleTasksSignedIn = $authStore.status === 'authenticated'
     })
 
-    // Toggle body class for background blur effect
-    $effect(() => {
-        if (settings.showBackground && background) {
-            document.body.classList.add('has-background')
-        } else {
-            document.body.classList.remove('has-background')
-        }
-    })
+    // Body class now handled via <svelte:body> in markup
 
     // Background image loading
     $effect(() => {
@@ -140,14 +116,6 @@
             })
     })
 
-    function handleThumbLoad(): void {
-        thumbLoaded = true
-    }
-
-    function handleFullLoad(): void {
-        fullLoaded = true
-    }
-
     // Expose refresh function for Settings component
     async function refreshBackground(): Promise<void> {
         thumbLoaded = false
@@ -155,6 +123,15 @@
         background = await forceRefreshBackground(settings.unsplashApiKey)
     }
 </script>
+
+<svelte:head>
+    <title>{settings.tabTitle || '~'}</title>
+    {#if settings.customCSS}
+        {@html `<style id="custom-css">${settings.customCSS}</style>`}
+    {/if}
+</svelte:head>
+
+<svelte:body class:has-background={settings.showBackground && !!background} />
 
 <BackendErrorBanner />
 
@@ -171,7 +148,7 @@
                 class:loaded={thumbLoaded}
                 src={background.thumbUrl}
                 alt={background.description || 'Background'}
-                onload={handleThumbLoad}
+                onload={() => (thumbLoaded = true)}
             />
             <!-- Full resolution: only starts loading after thumb is visible -->
             {#if thumbLoaded}
@@ -180,7 +157,7 @@
                     class:loaded={fullLoaded}
                     src={background.fullUrl}
                     alt={background.description || 'Background'}
-                    onload={handleFullLoad}
+                    onload={() => (fullLoaded = true)}
                 />
             {/if}
         </div>

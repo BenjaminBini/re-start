@@ -66,30 +66,20 @@
             weeks.push(week)
         }
 
-        return { name: MONTHS[month], year, month, weeks }
+        return { name: MONTHS[month] ?? '', year, month, weeks }
     }
 
     let thisMonth = $derived(getMonthData(currentYear, currentMonth))
-    let nextMonthData = $derived(() => {
-        const nextMonth = currentMonth + 1
-        const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear
-        return getMonthData(nextYear, nextMonth % 12)
+    let nextMonth = $derived.by(() => {
+        const month = currentMonth + 1
+        const year = month > 11 ? currentYear + 1 : currentYear
+        return getMonthData(year, month % 12)
     })
 </script>
 
 <Panel label="calendar" flex={1} noFade noPaddingBottom>
     <Row gap="xl">
-        <CalendarGrid
-            monthData={thisMonth}
-            {currentMonth}
-            {currentYear}
-            {today}
-        />
-        <CalendarGrid
-            monthData={nextMonthData()}
-            {currentMonth}
-            {currentYear}
-            {today}
-        />
+        <CalendarGrid monthData={thisMonth} {currentMonth} {currentYear} {today} />
+        <CalendarGrid monthData={nextMonth} {currentMonth} {currentYear} {today} />
     </Row>
 </Panel>

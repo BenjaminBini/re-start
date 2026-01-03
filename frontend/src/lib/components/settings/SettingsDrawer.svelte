@@ -1,10 +1,11 @@
 <script lang="ts">
-    import type { Snippet, Component } from 'svelte'
+    import type { Snippet } from 'svelte'
     import { Drawer, Link } from '../ui'
 
     interface Tab {
         id: string
-        icon: Component
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        icon: any
         title: string
     }
 

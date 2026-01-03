@@ -15,15 +15,18 @@
 
 <GridGroup columns={2} gap="sm" noMargin>
     {#each themeNames as themeName (themeName)}
-        <RadioButton bind:group={selected} value={themeName}>
-            <ColorSwatch
-                colors={[
-                    themes[themeName].colors['--bg-1'],
-                    themes[themeName].colors['--txt-4'],
-                    themes[themeName].colors['--txt-2'],
-                ]}
-            />
-            <Text size="sm" flex>{themes[themeName].displayName}</Text>
-        </RadioButton>
+        {@const theme = themes[themeName]}
+        {#if theme}
+            <RadioButton bind:group={selected} value={themeName}>
+                <ColorSwatch
+                    colors={[
+                        theme.colors['--bg-1'],
+                        theme.colors['--txt-4'],
+                        theme.colors['--txt-2'],
+                    ]}
+                />
+                <Text size="sm" flex>{theme.displayName}</Text>
+            </RadioButton>
+        {/if}
     {/each}
 </GridGroup>
