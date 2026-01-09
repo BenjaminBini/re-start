@@ -96,6 +96,7 @@
         disabled={syncing}
         spinning={syncing}
         title="sync"
+        aria-label="Sync calendar"
     >
         <RefreshCw size={14} />
     </Button>

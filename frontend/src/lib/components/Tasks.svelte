@@ -167,8 +167,15 @@
                 />
             {/each}
         </ScrollList>
-        {#if isRemote}
-            <Button variant="sync" onclick={syncTasks} disabled={syncing} spinning={syncing} title="sync">
+        {#if settings.taskBackend !== 'local'}
+            <Button
+                variant="sync"
+                onclick={syncTasks}
+                disabled={syncing}
+                spinning={syncing}
+                title="sync"
+                aria-label="Sync tasks"
+            >
                 <RefreshCw size={14} />
             </Button>
         {/if}

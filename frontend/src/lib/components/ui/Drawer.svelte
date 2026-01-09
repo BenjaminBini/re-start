@@ -115,7 +115,7 @@
     >
         <div class="header">
             <h2>{title}</h2>
-            <button class="close-btn" onclick={onClose}>x</button>
+            <button class="close-btn" onclick={onClose} aria-label="Close">x</button>
         </div>
 
         {#if tabs.length > 0}
@@ -126,6 +126,7 @@
                         class:active={activeTab === tab.id}
                         onclick={() => (activeTab = tab.id)}
                         title={tab.title}
+                        aria-label={tab.title}
                         bind:this={tabElements[tab.id]}
                     >
                         <tab.icon size={18} strokeWidth={2} />
