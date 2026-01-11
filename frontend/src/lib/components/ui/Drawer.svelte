@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Snippet, Component } from 'svelte'
     import { fade, fly } from 'svelte/transition'
+    import { focusTrap } from '../../focus-trap'
 
     interface Tab {
         id: string
@@ -30,30 +31,11 @@
 
     let tabElements = $state<Record<string, HTMLButtonElement>>({})
     let indicatorStyle = $state('')
-    let drawerElement = $state<HTMLDivElement | null>(null)
-    let previouslyFocused = $state<HTMLElement | null>(null)
 
     $effect(() => {
         const el = tabElements[activeTab]
         if (el) {
             indicatorStyle = `left: ${el.offsetLeft}px; width: ${el.offsetWidth}px`
-        }
-    })
-
-    // Focus trap and auto-focus when drawer opens
-    $effect(() => {
-        if (open && drawerElement) {
-            // Store previously focused element
-            previouslyFocused = document.activeElement as HTMLElement | null
-            // Focus the first focusable element in the drawer
-            const firstFocusable = drawerElement.querySelector<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            )
-            firstFocusable?.focus()
-        } else if (!open && previouslyFocused) {
-            // Restore focus when closing
-            previouslyFocused.focus()
-            previouslyFocused = null
         }
     })
 
@@ -113,31 +95,6 @@
                 tabElements[newTab.id]?.focus()
             }
         }
-
-        // Focus trap: handle Tab key
-        if (event.key === 'Tab' && drawerElement) {
-            const focusableElements = drawerElement.querySelectorAll<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            )
-            const firstElement = focusableElements[0]
-            const lastElement = focusableElements[focusableElements.length - 1]
-
-            if (!firstElement) return
-
-            if (event.shiftKey) {
-                // Shift+Tab: if on first element, wrap to last
-                if (document.activeElement === firstElement) {
-                    event.preventDefault()
-                    lastElement?.focus()
-                }
-            } else {
-                // Tab: if on last element, wrap to first
-                if (document.activeElement === lastElement) {
-                    event.preventDefault()
-                    firstElement.focus()
-                }
-            }
-        }
     }
 </script>
 
@@ -147,15 +104,12 @@
     <div
         class="backdrop"
         onclick={onClose}
-        onkeydown={(e) => e.key === 'Enter' && onClose?.()}
-        role="button"
-        tabindex="0"
         transition:fade={{ duration: 200 }}
     ></div>
 
     <div
         class="drawer"
-        bind:this={drawerElement}
+        use:focusTrap={{ active: open, restoreFocus: true }}
         style:width
         role="dialog"
         aria-modal="true"
