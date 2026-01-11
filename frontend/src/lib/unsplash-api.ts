@@ -3,6 +3,10 @@
 // Images update daily with lazy refresh
 
 import type { UnsplashBackground, UnsplashPhotographer } from './types'
+import { localStorage as storageAdapter } from './storage-adapter'
+import { createLogger } from './logger'
+
+const logger = createLogger('UnsplashAPI')
 
 const API_URL = 'https://api.unsplash.com/photos/random'
 const STORAGE_KEY = 'unsplash_background'
@@ -49,28 +53,25 @@ function getRandomTopic(): string {
 }
 
 /**
- * Load cached background data from localStorage
+ * Load cached background data from chrome.storage.local
  */
-export function loadCachedBackground(): UnsplashBackground | null {
+export async function loadCachedBackground(): Promise<UnsplashBackground | null> {
     try {
-        const cached = localStorage.getItem(STORAGE_KEY)
-        if (cached) {
-            return JSON.parse(cached) as UnsplashBackground
-        }
-    } catch (e) {
-        console.error('Failed to load cached background:', e)
+        return await storageAdapter.get<UnsplashBackground | null>(STORAGE_KEY, null)
+    } catch (error) {
+        logger.error('Failed to load cached background:', error)
+        return null
     }
-    return null
 }
 
 /**
- * Save background data to localStorage
+ * Save background data to chrome.storage.local
  */
-function saveBackground(data: UnsplashBackground): void {
+async function saveBackground(data: UnsplashBackground): Promise<void> {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-    } catch (e) {
-        console.error('Failed to save background:', e)
+        await storageAdapter.set(STORAGE_KEY, data)
+    } catch (error) {
+        logger.error('Failed to save background:', error)
     }
 }
 
@@ -142,9 +143,9 @@ async function triggerDownloadTracking(
                 Authorization: `Client-ID ${apiKey}`,
             },
         })
-    } catch (e) {
+    } catch (error) {
         // Non-critical, just for Unsplash analytics
-        console.warn('Failed to trigger download tracking:', e)
+        logger.warn('Failed to trigger download tracking:', error)
     }
 }
 
@@ -155,7 +156,7 @@ async function triggerDownloadTracking(
 export async function getBackground(
     apiKey: string
 ): Promise<UnsplashBackground> {
-    const cached = loadCachedBackground()
+    const cached = await loadCachedBackground()
 
     // Return cached if valid for today
     if (cached && cached.fetchDate === getTodayDate()) {
@@ -173,21 +174,21 @@ export async function getBackground(
     // Fetch new background
     try {
         const background = await fetchFromUnsplash(apiKey)
-        saveBackground(background)
+        await saveBackground(background)
 
         // Trigger download tracking (fire and forget)
         triggerDownloadTracking(apiKey, background.downloadLocation)
 
         return background
-    } catch (e) {
-        console.error('Failed to fetch background:', e)
+    } catch (error) {
+        logger.error('Failed to fetch background:', error)
 
         // Return stale cache if available, better than nothing
         if (cached) {
             return { ...cached, stale: true }
         }
 
-        throw e
+        throw error
     }
 }
 
@@ -199,7 +200,7 @@ export async function forceRefreshBackground(
     topic?: string
 ): Promise<UnsplashBackground> {
     const background = await fetchFromUnsplash(apiKey, topic)
-    saveBackground(background)
+    await saveBackground(background)
 
     // Trigger download tracking
     triggerDownloadTracking(apiKey, background.downloadLocation)

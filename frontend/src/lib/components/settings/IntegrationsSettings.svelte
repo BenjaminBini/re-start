@@ -60,7 +60,7 @@
             await googleTasksApi.signIn()
             settings.googleTasksSignedIn = true
             googleUserEmail = googleTasksApi.getUserEmail() ?? ''
-            saveSettings(settings)
+            await saveSettings(settings)
         } catch (err) {
             console.error('Google sign-in error:', err)
             signInError = 'sign in failed'
@@ -79,7 +79,7 @@
             await googleTasksApi.signOut()
             settings.googleTasksSignedIn = false
             googleUserEmail = ''
-            saveSettings(settings)
+            await saveSettings(settings)
             signInError = ''
         } catch (err) {
             console.error('Google sign-out error:', err)

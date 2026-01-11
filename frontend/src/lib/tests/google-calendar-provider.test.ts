@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import GoogleCalendarProvider from '../providers/google-calendar-provider'
 import * as googleAuth from '../providers/google-auth'
 import * as uuid from '../uuid'
+import { localStorage as storageAdapter } from '../storage-adapter'
 
 // Mock the google-auth module
 vi.mock('../providers/google-auth', () => ({
@@ -16,66 +17,47 @@ vi.mock('../uuid', () => ({
     generateUUID: vi.fn(() => 'mock-uuid-123'),
 }))
 
-// Helper to create a mock localStorage
-function createMockLocalStorage() {
-    const store: Record<string, string> = {}
-    return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key]
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach((key) => delete store[key])
-        }),
-        get length() {
-            return Object.keys(store).length
-        },
-        key: vi.fn((index: number) => {
-            const keys = Object.keys(store)
-            return keys[index] || null
-        }),
-        _store: store, // Internal access for testing
-    }
-}
+// Mock the storage adapter
+vi.mock('../storage-adapter', () => ({
+    localStorage: {
+        get: vi.fn(async (_key: string, defaultValue: unknown) => defaultValue),
+        set: vi.fn(async () => {}),
+        remove: vi.fn(async () => {}),
+    },
+}))
 
 describe('GoogleCalendarProvider', () => {
-    let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
     let mockApiRequest: ReturnType<typeof vi.fn<[], Promise<unknown>>>
 
     beforeEach(() => {
-        mockLocalStorage = createMockLocalStorage()
-        vi.stubGlobal('localStorage', mockLocalStorage)
-
         // Reset mock implementations
         mockApiRequest = vi.fn<[], Promise<unknown>>()
         // createApiClient returns a function that will be used for API requests
         vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest as <T>(endpoint: string, options?: RequestInit) => Promise<T>)
         vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
 
+        // Reset storage adapter mocks
+        vi.mocked(storageAdapter.get).mockResolvedValue(null)
+        vi.mocked(storageAdapter.set).mockResolvedValue(undefined)
+        vi.mocked(storageAdapter.remove).mockResolvedValue(undefined)
+
         vi.clearAllMocks()
     })
 
-    afterEach(() => {
-        vi.unstubAllGlobals()
-    })
-
     describe('constructor', () => {
-        it('initializes with empty data when localStorage is empty', () => {
+        it('initializes with empty data when storage is empty', async () => {
             const backend = new GoogleCalendarProvider()
 
             expect(googleAuth.migrateStorageKeys).toHaveBeenCalled()
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'google_calendar_data'
-            )
+
+            // Wait for async data loading
+            await new Promise(resolve => setTimeout(resolve, 0))
 
             const events = backend.getEvents()
             expect(events).toEqual([])
         })
 
-        it('loads existing data from localStorage', () => {
+        it('loads existing data from storage', async () => {
             const existingData = {
                 calendars: [{ id: 'cal1', summary: 'Work' }],
                 events: [
@@ -94,44 +76,62 @@ describe('GoogleCalendarProvider', () => {
                 ],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(existingData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(existingData)
 
             const backend = new GoogleCalendarProvider()
+
+            // Wait for async data loading
+            await new Promise(resolve => setTimeout(resolve, 0))
 
             const events = backend.getEvents()
             expect(events).toHaveLength(1)
             expect(events[0]!.title).toBe('Meeting')
         })
 
-        it('handles corrupted JSON in localStorage', () => {
-            mockLocalStorage._store['google_calendar_data'] = 'invalid-json'
+        it('handles corrupted data in storage gracefully', async () => {
+            // Mock storage to throw an error
+            vi.mocked(storageAdapter.get).mockRejectedValue(new Error('Corrupted data'))
 
-            expect(() => new GoogleCalendarProvider()).toThrow()
+            const consoleWarnSpy = vi
+                .spyOn(console, 'warn')
+                .mockImplementation(() => {})
+
+            const backend = new GoogleCalendarProvider()
+
+            // Wait for async data loading
+            await new Promise(resolve => setTimeout(resolve, 0))
+
+            // Should not throw, just log a warning
+            expect(consoleWarnSpy).toHaveBeenCalled()
+            const events = backend.getEvents()
+            expect(events).toEqual([])
+
+            consoleWarnSpy.mockRestore()
         })
     })
 
     describe('isCacheStale', () => {
-        it('returns true when no timestamp exists', () => {
+        it('returns true when no timestamp exists', async () => {
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.isCacheStale()).toBe(true)
         })
 
-        it('returns false when cache is fresh (within 5 minutes)', () => {
+        it('returns false when cache is fresh (within 5 minutes)', async () => {
             const mockData = {
                 calendars: [],
                 events: [],
                 timestamp: Date.now(),
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.isCacheStale()).toBe(false)
         })
 
-        it('returns true when cache is older than 5 minutes', () => {
+        it('returns true when cache is older than 5 minutes', async () => {
             const oldTimestamp = Date.now() - 6 * 60 * 1000 // 6 minutes ago
 
             const mockData = {
@@ -140,14 +140,14 @@ describe('GoogleCalendarProvider', () => {
                 timestamp: oldTimestamp,
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.isCacheStale()).toBe(true)
         })
 
-        it('returns false when cache is at the 5-minute boundary', () => {
+        it('returns false when cache is at the 5-minute boundary', async () => {
             const boundaryTimestamp = Date.now() - 5 * 60 * 1000 + 100 // Just under 5 minutes
 
             const mockData = {
@@ -156,10 +156,10 @@ describe('GoogleCalendarProvider', () => {
                 timestamp: boundaryTimestamp,
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.isCacheStale()).toBe(false)
         })
     })
@@ -309,7 +309,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[0]!.calendarColor).toBe('#ff0000')
         })
 
-        it('saves data to localStorage with timestamp', async () => {
+        it('saves data to storage with timestamp', async () => {
             const mockCalendarsResponse = { items: [] }
 
             mockApiRequest.mockResolvedValueOnce(mockCalendarsResponse)
@@ -317,14 +317,15 @@ describe('GoogleCalendarProvider', () => {
             const backend = new GoogleCalendarProvider()
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(storageAdapter.set).toHaveBeenCalledWith(
                 'google_calendar_data',
-                expect.any(String)
+                expect.objectContaining({
+                    timestamp: expect.any(Number)
+                })
             )
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['google_calendar_data']!
-            )
+            // Get the saved data from the mock call
+            const savedData = vi.mocked(storageAdapter.set).mock.calls[0]![1] as any
             expect(savedData.timestamp).toBeDefined()
             expect(savedData.timestamp).toBeGreaterThan(0)
         })
@@ -495,12 +496,13 @@ describe('GoogleCalendarProvider', () => {
     })
 
     describe('getEvents', () => {
-        it('returns empty array when no events exist', () => {
+        it('returns empty array when no events exist', async () => {
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.getEvents()).toEqual([])
         })
 
-        it('filters out cancelled events', () => {
+        it('filters out cancelled events', async () => {
             const mockData = {
                 calendars: [],
                 events: [
@@ -529,17 +531,17 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
             expect(events[0]!.title).toBe('Active Event')
         })
 
-        it('processes all-day events correctly', () => {
+        it('processes all-day events correctly', async () => {
             const mockData = {
                 calendars: [],
                 events: [
@@ -552,10 +554,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
@@ -564,7 +566,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[0]!.endTime).toBeInstanceOf(Date)
         })
 
-        it('processes timed events correctly', () => {
+        it('processes timed events correctly', async () => {
             const startTime = new Date()
             const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
@@ -580,10 +582,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events).toHaveLength(1)
@@ -592,7 +594,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[0]!.endTime.getTime()).toBe(endTime.getTime())
         })
 
-        it('sets isPast flag correctly for past events', () => {
+        it('sets isPast flag correctly for past events', async () => {
             const pastStart = new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
             const pastEnd = new Date(Date.now() - 1 * 60 * 60 * 1000) // 1 hour ago
 
@@ -608,17 +610,17 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.isPast).toBe(true)
             expect(events[0]!.isOngoing).toBe(false)
         })
 
-        it('sets isOngoing flag correctly for ongoing events', () => {
+        it('sets isOngoing flag correctly for ongoing events', async () => {
             const ongoingStart = new Date(Date.now() - 30 * 60 * 1000) // 30 min ago
             const ongoingEnd = new Date(Date.now() + 30 * 60 * 1000) // 30 min from now
 
@@ -634,17 +636,17 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.isOngoing).toBe(true)
             expect(events[0]!.isPast).toBe(false)
         })
 
-        it('sets isPast and isOngoing correctly for future events', () => {
+        it('sets isPast and isOngoing correctly for future events', async () => {
             const futureStart = new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour from now
             const futureEnd = new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from now
 
@@ -660,17 +662,17 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.isPast).toBe(false)
             expect(events[0]!.isOngoing).toBe(false)
         })
 
-        it('sorts all-day events before timed events', () => {
+        it('sorts all-day events before timed events', async () => {
             const timedStart = new Date(Date.now() - 30 * 60 * 1000)
             const timedEnd = new Date(Date.now() + 30 * 60 * 1000)
 
@@ -692,10 +694,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events).toHaveLength(2)
@@ -703,7 +705,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[1]!.title).toBe('Timed Event')
         })
 
-        it('sorts timed events by start time', () => {
+        it('sorts timed events by start time', async () => {
             const laterStart = new Date(Date.now() + 2 * 60 * 60 * 1000)
             const laterEnd = new Date(Date.now() + 3 * 60 * 60 * 1000)
             const earlierStart = new Date(Date.now() + 1 * 60 * 60 * 1000)
@@ -727,10 +729,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events).toHaveLength(2)
@@ -738,7 +740,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[1]!.title).toBe('Later Event')
         })
 
-        it('handles events without titles', () => {
+        it('handles events without titles', async () => {
             const mockData = {
                 calendars: [],
                 events: [
@@ -754,16 +756,16 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.title).toBe('(No title)')
         })
 
-        it('handles events with all optional fields', () => {
+        it('handles events with all optional fields', async () => {
             const mockData = {
                 calendars: [],
                 events: [
@@ -786,10 +788,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.title).toBe('Meeting')
@@ -805,7 +807,7 @@ describe('GoogleCalendarProvider', () => {
             expect(events[0]!.calendarColor).toBe('#ff0000')
         })
 
-        it('handles events with missing optional fields', () => {
+        it('handles events with missing optional fields', async () => {
             const mockData = {
                 calendars: [],
                 events: [
@@ -822,10 +824,10 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const events = backend.getEvents()
 
             expect(events[0]!.description).toBe('')
@@ -838,12 +840,13 @@ describe('GoogleCalendarProvider', () => {
     })
 
     describe('getCalendars', () => {
-        it('returns empty array when no calendars exist', () => {
+        it('returns empty array when no calendars exist', async () => {
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             expect(backend.getCalendars()).toEqual([])
         })
 
-        it('returns calendars from stored data', () => {
+        it('returns calendars from stored data', async () => {
             const mockData = {
                 calendars: [
                     { id: 'cal1', summary: 'Work' },
@@ -852,10 +855,10 @@ describe('GoogleCalendarProvider', () => {
                 events: [],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
+            await new Promise(resolve => setTimeout(resolve, 0))
             const calendars = backend.getCalendars()
 
             expect(calendars).toHaveLength(2)
@@ -1178,21 +1181,23 @@ describe('GoogleCalendarProvider', () => {
     })
 
     describe('clearLocalData', () => {
-        it('removes data from localStorage', () => {
-            mockLocalStorage._store['google_calendar_data'] = JSON.stringify({
+        it('removes data from storage', async () => {
+            const mockData = {
                 calendars: [],
                 events: [],
-            })
+            }
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
-            backend.clearLocalData()
+            await new Promise(resolve => setTimeout(resolve, 0))
+            await backend.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(storageAdapter.remove).toHaveBeenCalledWith(
                 'google_calendar_data'
             )
         })
 
-        it('resets data to empty state', () => {
+        it('resets data to empty state', async () => {
             const mockData = {
                 calendars: [{ id: 'cal1', summary: 'Work' }],
                 events: [
@@ -1209,11 +1214,11 @@ describe('GoogleCalendarProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_calendar_data'] =
-                JSON.stringify(mockData)
+            vi.mocked(storageAdapter.get).mockResolvedValue(mockData)
 
             const backend = new GoogleCalendarProvider()
-            backend.clearLocalData()
+            await new Promise(resolve => setTimeout(resolve, 0))
+            await backend.clearLocalData()
 
             expect(backend.getEvents()).toEqual([])
             expect(backend.getCalendars()).toEqual([])

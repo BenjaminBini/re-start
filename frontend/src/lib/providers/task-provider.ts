@@ -60,8 +60,9 @@ abstract class TaskProvider {
 
     /**
      * Clear all local data/cache
+     * Note: Some implementations may be async (return Promise<void>)
      */
-    abstract clearLocalData(): void
+    abstract clearLocalData(): void | Promise<void>
 
     static readonly RECENT_COMPLETION_THRESHOLD_MS = 5 * 60 * 1000
 

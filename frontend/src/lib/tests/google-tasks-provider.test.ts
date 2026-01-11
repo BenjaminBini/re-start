@@ -1,6 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import GoogleTasksProvider from '../providers/google-tasks-provider'
-import * as googleAuth from '../providers/google-auth'
+
+// Mock store for storage-adapter
+const mockStore: Record<string, unknown> = {}
+
+// Mock the storage-adapter module
+vi.mock('../storage-adapter', () => {
+    return {
+        localStorage: {
+            get: vi.fn(async (key: string, defaultValue: unknown) => {
+                return mockStore[key] !== undefined
+                    ? mockStore[key]
+                    : defaultValue
+            }),
+            set: vi.fn(async (key: string, value: unknown) => {
+                mockStore[key] = value
+            }),
+            remove: vi.fn(async (key: string) => {
+                delete mockStore[key]
+            }),
+            clear: vi.fn(async () => {
+                Object.keys(mockStore).forEach((key) => delete mockStore[key])
+            }),
+            onChange: vi.fn(() => () => {}),
+        },
+        syncStorage: {
+            get: vi.fn(),
+            set: vi.fn(),
+            remove: vi.fn(),
+            clear: vi.fn(),
+            onChange: vi.fn(() => () => {}),
+        },
+    }
+})
 
 // Mock the google-auth module
 vi.mock('../providers/google-auth', () => ({
@@ -14,70 +45,60 @@ vi.mock('../providers/google-auth', () => ({
     createApiClient: vi.fn(() => vi.fn()),
 }))
 
-// Helper to create a mock localStorage
-function createMockLocalStorage() {
-    const store: Record<string, string> = {}
-    return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key]
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach((key) => delete store[key])
-        }),
-        get length() {
-            return Object.keys(store).length
-        },
-        key: vi.fn((index: number) => {
-            const keys = Object.keys(store)
-            return keys[index] || null
-        }),
-        _store: store, // Internal access for testing
-    }
+// Import after mocks
+import GoogleTasksProvider from '../providers/google-tasks-provider'
+import * as googleAuth from '../providers/google-auth'
+import { localStorage as mockStorageAdapter } from '../storage-adapter'
+
+/**
+ * Helper function to wait for async data loading in GoogleTasksProvider
+ * Call this after creating a new provider instance that should load from mockStore
+ */
+async function waitForDataLoad() {
+    await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 describe('GoogleTasksProvider', () => {
-    let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
     let mockApiRequest: ReturnType<typeof vi.fn<[], Promise<unknown>>>
 
     beforeEach(() => {
-        mockLocalStorage = createMockLocalStorage()
-        vi.stubGlobal('localStorage', mockLocalStorage)
+        // Reset the mock storage before each test
+        Object.keys(mockStore).forEach((key) => delete mockStore[key])
 
         // Reset mock implementations
         mockApiRequest = vi.fn<[], Promise<unknown>>()
         // createApiClient returns a function that will be used for API requests
-        vi.mocked(googleAuth.createApiClient).mockReturnValue(mockApiRequest as <T>(endpoint: string, options?: RequestInit) => Promise<T>)
+        vi.mocked(googleAuth.createApiClient).mockReturnValue(
+            mockApiRequest as <T>(
+                endpoint: string,
+                options?: RequestInit
+            ) => Promise<T>
+        )
         vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
-        vi.mocked(googleAuth.ensureValidToken).mockResolvedValue('mock-token-123')
+        vi.mocked(googleAuth.ensureValidToken).mockResolvedValue(
+            'mock-token-123'
+        )
 
         vi.clearAllMocks()
     })
 
     afterEach(() => {
-        vi.unstubAllGlobals()
+        // Clean up mock store
+        Object.keys(mockStore).forEach((key) => delete mockStore[key])
     })
 
     describe('constructor', () => {
-        it('initializes with empty data when localStorage is empty', () => {
+        it('initializes with empty data when storage is empty', () => {
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             expect(googleAuth.migrateStorageKeys).toHaveBeenCalled()
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'google_tasks_data'
-            )
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'google_tasks_default_list'
-            )
 
             const tasks = backend.getTasks()
             expect(tasks).toEqual([])
         })
 
-        it('loads existing data from localStorage', () => {
+        it('loads existing data from storage asynchronously', async () => {
             const existingData = {
                 tasklists: [{ id: 'list1', title: 'My Tasks' }],
                 tasks: [
@@ -91,29 +112,34 @@ describe('GoogleTasksProvider', () => {
                 ],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(existingData)
+            mockStore['google_tasks_data'] = existingData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
+
+            // Wait for async data loading
+            await new Promise((resolve) => setTimeout(resolve, 0))
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.content).toBe('Existing task')
         })
 
-        it('loads default tasklist ID from localStorage', () => {
-            mockLocalStorage._store['google_tasks_default_list'] = 'custom-list-id'
+        it('loads default tasklist ID from storage', async () => {
+            mockStore['google_tasks_default_list'] = 'custom-list-id'
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'google_tasks_default_list'
-            )
+            // Wait for async data loading
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
             expect(backend).toBeDefined()
         })
 
         it('defaults to "@default" when no tasklist ID is stored', () => {
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             // Verify by checking that backend is initialized
             expect(backend).toBeDefined()
@@ -123,22 +149,24 @@ describe('GoogleTasksProvider', () => {
     describe('auth methods', () => {
         it('signIn delegates to google-auth module', async () => {
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.signIn()
 
             expect(googleAuth.signIn).toHaveBeenCalled()
         })
 
         it('signOut delegates to google-auth and clears local data', async () => {
-            mockLocalStorage._store['google_tasks_data'] = JSON.stringify({
+            mockStore['google_tasks_data'] = {
                 tasklists: [],
                 tasks: [],
-            })
+            }
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.signOut()
 
             expect(googleAuth.signOut).toHaveBeenCalled()
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
                 'google_tasks_data'
             )
         })
@@ -147,6 +175,7 @@ describe('GoogleTasksProvider', () => {
             vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const result = backend.getIsSignedIn()
 
             expect(googleAuth.isSignedIn).toHaveBeenCalled()
@@ -157,6 +186,7 @@ describe('GoogleTasksProvider', () => {
             vi.mocked(googleAuth.getUserEmail).mockReturnValue('test@example.com')
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const email = backend.getUserEmail()
 
             expect(googleAuth.getUserEmail).toHaveBeenCalled()
@@ -169,6 +199,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const token = await backend.ensureValidToken()
 
             expect(googleAuth.ensureValidToken).toHaveBeenCalled()
@@ -181,6 +212,7 @@ describe('GoogleTasksProvider', () => {
             vi.mocked(googleAuth.isSignedIn).mockReturnValue(false)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.sync()).rejects.toThrow(
                 'Not signed in to Google account'
@@ -221,6 +253,7 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce(mockTasksResponse2)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -256,6 +289,7 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce(mockTasksResponse)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
             const tasks = backend.getTasks()
@@ -269,16 +303,17 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce(mockTasklistsResponse)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'google_tasks_data',
-                expect.any(String)
+                expect.any(Object)
             )
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['google_tasks_data']!
-            )
+            const savedData = mockStore['google_tasks_data'] as {
+                timestamp?: number
+            }
             expect(savedData.timestamp).toBeDefined()
             expect(savedData.timestamp).toBeGreaterThan(0)
         })
@@ -297,16 +332,17 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce({ items: [] })
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'google_tasks_default_list',
                 'first-list'
             )
         })
 
         it('updates invalid tasklist ID to first available', async () => {
-            mockLocalStorage._store['google_tasks_default_list'] = 'invalid-list-id'
+            mockStore['google_tasks_default_list'] = 'invalid-list-id'
 
             const mockTasklistsResponse = {
                 items: [{ id: 'valid-list', title: 'Valid List' }],
@@ -317,16 +353,17 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce({ items: [] })
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'google_tasks_default_list',
                 'valid-list'
             )
         })
 
         it('keeps valid default tasklist ID', async () => {
-            mockLocalStorage._store['google_tasks_default_list'] = 'valid-list'
+            mockStore['google_tasks_default_list'] = 'valid-list'
 
             const mockTasklistsResponse = {
                 items: [
@@ -341,6 +378,7 @@ describe('GoogleTasksProvider', () => {
                 .mockResolvedValueOnce({ items: [] })
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             // Clear setItem calls from constructor
             vi.clearAllMocks()
@@ -348,7 +386,7 @@ describe('GoogleTasksProvider', () => {
             await backend.sync()
 
             // Should not update the tasklist ID since it's still valid
-            const setItemCalls = mockLocalStorage.setItem.mock.calls
+            const setItemCalls = mockStorageAdapter.set.mock.calls
             const tasklistIdCalls = setItemCalls.filter(
                 (call) => call[0] === 'google_tasks_default_list'
             )
@@ -361,6 +399,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce(mockTasklistsResponse)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync()
 
             const tasks = backend.getTasks()
@@ -378,12 +417,13 @@ describe('GoogleTasksProvider', () => {
             void new GoogleTasksProvider()
 
             // Add a tasklist manually to trigger task fetching
-            mockLocalStorage._store['google_tasks_data'] = JSON.stringify({
+            mockStore['google_tasks_data'] = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [],
-            })
+            }
 
             const backend2 = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend2.sync(['tasks'])
 
             const tasks = backend2.getTasks()
@@ -398,6 +438,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce(mockTasklistsResponse)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.sync(['tasklists'])
 
             // Should only fetch tasklists, not tasks
@@ -416,6 +457,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockRejectedValueOnce(new Error('API request failed'))
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.sync()).rejects.toThrow('API request failed')
             expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -431,6 +473,7 @@ describe('GoogleTasksProvider', () => {
     describe('getTasks', () => {
         it('returns empty array when no tasks exist', () => {
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             expect(backend.getTasks()).toEqual([])
         })
 
@@ -456,10 +499,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
@@ -486,10 +530,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
@@ -516,10 +561,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks).toEqual([])
@@ -539,10 +585,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.project_id).toBe('work-list')
@@ -564,10 +611,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.due_date).toBeInstanceOf(Date)
@@ -593,10 +641,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.due_date).toBeNull()
@@ -625,10 +674,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             // Active task should be first (unchecked tasks before checked)
@@ -650,10 +700,11 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.labels).toEqual([])
@@ -671,10 +722,11 @@ describe('GoogleTasksProvider', () => {
                 tasks: [],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             expect(backend.getTasklistName('list1')).toBe('Work')
             expect(backend.getTasklistName('list2')).toBe('Personal')
@@ -686,10 +738,11 @@ describe('GoogleTasksProvider', () => {
                 tasks: [],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             expect(backend.getTasklistName('non-existent')).toBe('')
         })
@@ -700,6 +753,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.addTask('New task', null)
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -715,6 +769,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.addTask('Task with due date', '2025-12-25')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -733,6 +788,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.addTask('Task', '2025-12-25T14:30:00')
 
             const call = mockApiRequest.mock.calls[0] as unknown[]
@@ -744,6 +800,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.addTask('Task', null)
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -758,6 +815,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.addTask('Task', null)).rejects.toThrow(
                 'HTTP 400: Bad Request'
@@ -779,11 +837,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.completeTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -814,11 +873,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.completeTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -831,6 +891,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.completeTask('unknown-task')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -845,6 +906,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.completeTask('task1')).rejects.toThrow(
                 'HTTP 404: Not Found'
@@ -867,11 +929,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.uncompleteTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -899,11 +962,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.uncompleteTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -916,6 +980,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce({})
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.uncompleteTask('unknown-task')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -930,6 +995,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.uncompleteTask('task1')).rejects.toThrow(
                 'HTTP 500: Server Error'
@@ -951,11 +1017,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce(undefined)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.deleteTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -979,11 +1046,12 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] =
+                mockData
             mockApiRequest.mockResolvedValueOnce(undefined)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.deleteTask('task1')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -996,6 +1064,7 @@ describe('GoogleTasksProvider', () => {
             mockApiRequest.mockResolvedValueOnce(undefined)
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             await backend.deleteTask('unknown-task')
 
             expect(mockApiRequest).toHaveBeenCalledWith(
@@ -1010,6 +1079,7 @@ describe('GoogleTasksProvider', () => {
             )
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
 
             await expect(backend.deleteTask('task1')).rejects.toThrow(
                 'HTTP 403: Forbidden'
@@ -1018,32 +1088,34 @@ describe('GoogleTasksProvider', () => {
     })
 
     describe('clearLocalData', () => {
-        it('removes data from localStorage', () => {
-            mockLocalStorage._store['google_tasks_data'] = JSON.stringify({
+        it('removes data from localStorage', async () => {
+            mockStore['google_tasks_data'] = {
                 tasklists: [],
                 tasks: [],
-            })
+            }
 
             const backend = new GoogleTasksProvider()
-            backend.clearLocalData()
+            await waitForDataLoad()
+            await backend.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
                 'google_tasks_data'
             )
         })
 
-        it('removes default tasklist ID from localStorage', () => {
-            mockLocalStorage._store['google_tasks_default_list'] = 'list1'
+        it('removes default tasklist ID from localStorage', async () => {
+            mockStore['google_tasks_default_list'] = 'list1'
 
             const backend = new GoogleTasksProvider()
-            backend.clearLocalData()
+            await waitForDataLoad()
+            await backend.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
                 'google_tasks_default_list'
             )
         })
 
-        it('resets data to empty state', () => {
+        it('resets data to empty state', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [
@@ -1056,20 +1128,21 @@ describe('GoogleTasksProvider', () => {
                 ],
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] = mockData
 
             const backend = new GoogleTasksProvider()
-            backend.clearLocalData()
+            await waitForDataLoad()
+            await backend.clearLocalData()
 
             expect(backend.getTasks()).toEqual([])
         })
 
-        it('resets default tasklist ID to "@default"', () => {
-            mockLocalStorage._store['google_tasks_default_list'] = 'custom-list'
+        it('resets default tasklist ID to "@default"', async () => {
+            mockStore['google_tasks_default_list'] = 'custom-list'
 
             const backend = new GoogleTasksProvider()
-            backend.clearLocalData()
+            await waitForDataLoad()
+            await backend.clearLocalData()
 
             // Verify by checking that backend still works
             expect(backend).toBeDefined()
@@ -1079,24 +1152,29 @@ describe('GoogleTasksProvider', () => {
     describe('isCacheStale', () => {
         it('returns true when no timestamp exists', () => {
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
             expect(backend.isCacheStale()).toBe(true)
         })
 
-        it('returns false when cache is fresh (within 5 minutes)', () => {
+        it('returns false when cache is fresh (within 5 minutes)', async () => {
             const mockData = {
                 tasklists: [],
                 tasks: [],
                 timestamp: Date.now(),
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] = mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
+
+            // Wait for async data loading
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
             expect(backend.isCacheStale()).toBe(false)
         })
 
-        it('returns true when cache is older than 5 minutes', () => {
+        it('returns true when cache is older than 5 minutes', async () => {
             const oldTimestamp = Date.now() - 6 * 60 * 1000 // 6 minutes ago
 
             const mockData = {
@@ -1105,14 +1183,18 @@ describe('GoogleTasksProvider', () => {
                 timestamp: oldTimestamp,
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] = mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
+
+            // Wait for async data loading
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
             expect(backend.isCacheStale()).toBe(true)
         })
 
-        it('returns false when cache is at the 5-minute boundary', () => {
+        it('returns false when cache is at the 5-minute boundary', async () => {
             const boundaryTimestamp = Date.now() - 5 * 60 * 1000 + 100 // Just under 5 minutes
 
             const mockData = {
@@ -1121,10 +1203,14 @@ describe('GoogleTasksProvider', () => {
                 timestamp: boundaryTimestamp,
             }
 
-            mockLocalStorage._store['google_tasks_data'] =
-                JSON.stringify(mockData)
+            mockStore['google_tasks_data'] = mockData
 
             const backend = new GoogleTasksProvider()
+            await waitForDataLoad()
+
+            // Wait for async data loading
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
             expect(backend.isCacheStale()).toBe(false)
         })
     })

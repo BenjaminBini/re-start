@@ -74,17 +74,17 @@
 
     const version = __APP_VERSION__
 
-    function handleClose(): void {
-        saveSettings(settings)
+    async function handleClose(): Promise<void> {
+        await saveSettings(settings)
         closeSettings()
     }
 
-    function handleReset(): void {
+    async function handleReset(): Promise<void> {
         if (
             confirm('are you sure you want to reset all settings to default?')
         ) {
-            resetSettings()
-            saveSettings(settings)
+            await resetSettings()
+            await saveSettings(settings)
         }
     }
 </script>

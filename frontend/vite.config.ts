@@ -69,6 +69,22 @@ export default defineConfig({
     define: {
         __APP_VERSION__: JSON.stringify(manifest.version),
     },
+    build: {
+        rollupOptions: {
+            input: {
+                index: './index.html',
+                'service-worker': './src/service-worker.ts',
+            },
+            output: {
+                entryFileNames: (chunkInfo) => {
+                    // Service worker must be at root level, not in assets/
+                    return chunkInfo.name === 'service-worker'
+                        ? 'service-worker.js'
+                        : 'assets/[name]-[hash].js'
+                },
+            },
+        },
+    },
     server: {
         port: 5999,
         proxy: {

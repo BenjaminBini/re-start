@@ -13,6 +13,7 @@ import type {
 } from './types'
 import { createLogger } from './logger'
 import { NetworkError, SyncError } from './errors'
+import { localStorage as storageAdapter } from './storage-adapter'
 
 interface WeatherDescription {
     day?: { description?: string }
@@ -39,27 +40,28 @@ class WeatherAPI {
         this.dataKey = 'weather_data'
         this.cacheExpiry = 15 * 60 * 1000 // 15 minutes
 
-        this.data = this._loadFromStorage()
+        // Initialize with empty data, load asynchronously
+        this.data = {}
+        this._loadFromStorage()
     }
 
     /**
-     * Load cached data from localStorage
+     * Load cached data from chrome.storage.local
      */
-    private _loadFromStorage(): WeatherCacheData {
+    private async _loadFromStorage(): Promise<void> {
         try {
-            const stored = localStorage.getItem(this.dataKey)
-            return stored ? (JSON.parse(stored) as WeatherCacheData) : {}
+            this.data = await storageAdapter.get(this.dataKey, {})
         } catch (error) {
             logger.warn('Failed to load weather cache:', error)
-            return {}
+            this.data = {}
         }
     }
 
     /**
-     * Save data to localStorage
+     * Save data to chrome.storage.local
      */
-    private _saveToStorage(): void {
-        localStorage.setItem(this.dataKey, JSON.stringify(this.data))
+    private async _saveToStorage(): Promise<void> {
+        await storageAdapter.set(this.dataKey, this.data)
     }
 
     /**
@@ -91,16 +93,16 @@ class WeatherAPI {
     /**
      * Invalidate cache (force next sync to fetch fresh data)
      */
-    invalidateCache(): void {
+    async invalidateCache(): Promise<void> {
         this.data.timestamp = 0
-        this._saveToStorage()
+        await this._saveToStorage()
     }
 
     /**
      * Clear all cached data
      */
-    clearLocalData(): void {
-        localStorage.removeItem(this.dataKey)
+    async clearLocalData(): Promise<void> {
+        await storageAdapter.remove(this.dataKey)
         this.data = {}
     }
 
@@ -150,7 +152,7 @@ class WeatherAPI {
                 latitude,
                 longitude,
             }
-            this._saveToStorage()
+            await this._saveToStorage()
 
             logger.log('Weather sync successful')
 

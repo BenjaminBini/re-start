@@ -1,131 +1,172 @@
 /**
- * Google OAuth flow management
- * Handles sign in, sign out, OAuth callbacks, and session restoration
+ * Google OAuth flow management using chrome.identity API
+ * Handles sign in, sign out, and session restoration
  */
 
-import { API_URL, USER_ID_KEY, USER_EMAIL_KEY } from './constants'
+import { SCOPES_KEY } from './constants'
 import { log, logWarn, logError } from './logger'
-import type { AuthCallbackResult, AuthUrlResponse } from './types'
-import { getUserId, getAccessToken, storeTokens, clearTokens } from './storage'
+import type { AuthCallbackResult } from './types'
+import { getUserEmail, storeTokens, clearTokens } from './storage'
 import { setAuthenticated, setUnauthenticated } from './auth-state'
-import { isTokenExpired, validateToken, refreshToken } from './token'
+import { validateToken } from './token'
+import { localStorage as storage } from '../../storage-adapter'
+
+// OAuth scopes from manifest.json
+const OAUTH_SCOPES = [
+    'https://www.googleapis.com/auth/tasks',
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+]
 
 /**
  * Handle OAuth callback parameters from URL
- * Call this on page load to process auth redirects
+ * Note: With chrome.identity, this is no longer needed but kept for backward compatibility
+ * @deprecated No longer used with chrome.identity API
  */
 export function handleAuthCallback(): AuthCallbackResult | null {
-    const params = new URLSearchParams(window.location.search)
-
-    if (params.has('auth_success')) {
-        log('OAuth callback: SUCCESS')
-        const accessToken = params.get('access_token')
-        const expiresIn = params.get('expires_in')
-        const email = params.get('email')
-
-        if (accessToken) {
-            storeTokens(accessToken, expiresIn, email)
-            setAuthenticated(email)
-        }
-
-        // Clean URL
-        const cleanUrl = window.location.pathname
-        window.history.replaceState({}, '', cleanUrl)
-        log('OAuth callback complete, user signed in:', email)
-        return { success: true, email }
-    }
-
-    if (params.has('auth_error')) {
-        const error = params.get('auth_error')
-        logError('OAuth callback: ERROR', error)
-
-        // Clean URL
-        const cleanUrl = window.location.pathname
-        window.history.replaceState({}, '', cleanUrl)
-        return { success: false, error }
-    }
-
-    log('No OAuth callback params in URL')
+    log('handleAuthCallback called (no-op with chrome.identity)')
     return null
 }
 
 /**
- * Sign in - redirect to Google OAuth via backend
+ * Sign in using chrome.identity.getAuthToken()
  */
 export async function signIn(): Promise<void> {
-    const userId = getUserId()
-    log('Starting sign in flow for user:', userId)
+    log('Starting sign in flow with chrome.identity')
 
-    const response = await fetch(
-        `${API_URL}/api/auth/google/url?user_id=${userId}`
-    )
-    if (!response.ok) {
-        logError('Failed to get auth URL')
-        throw new Error('Failed to get auth URL')
+    try {
+        // Request auth token from Chrome
+        const token = await chrome.identity.getAuthToken({
+            interactive: true,
+            scopes: OAUTH_SCOPES,
+        })
+
+        if (!token) {
+            throw new Error('No token returned from chrome.identity')
+        }
+
+        log('Successfully obtained token from chrome.identity')
+
+        // Validate token and get user email
+        const tokenInfo = await fetch(
+            'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' +
+                token
+        )
+
+        if (!tokenInfo.ok) {
+            throw new Error('Failed to validate token')
+        }
+
+        const data = await tokenInfo.json()
+
+        // Store granted scopes
+        if (data.scope) {
+            await storage.set(SCOPES_KEY, data.scope)
+            log('Token is valid, scopes:', data.scope)
+        }
+
+        // Get user email
+        let email = null
+        try {
+            const userInfoResponse = await fetch(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            )
+            if (userInfoResponse.ok) {
+                const userInfo = await userInfoResponse.json()
+                email = userInfo.email
+            }
+        } catch (e) {
+            logWarn('Failed to fetch user email:', e)
+        }
+
+        // Store tokens (expires_in estimated at 3600 seconds for chrome.identity tokens)
+        await storeTokens(token, '3600', email)
+        setAuthenticated(email)
+        log('Sign in complete, user:', email)
+    } catch (error) {
+        logError('Sign in failed:', error)
+        setUnauthenticated()
+        throw error
     }
-
-    const data = (await response.json()) as AuthUrlResponse
-    log('Redirecting to Google OAuth:', data.url.substring(0, 80) + '...')
-    window.location.href = data.url
 }
 
 /**
- * Sign out - clear tokens locally and revoke on backend
+ * Sign out - revoke tokens using chrome.identity.removeCachedAuthToken()
  */
 export async function signOut(): Promise<void> {
-    const userId = getUserId()
-    log('Signing out user:', userId)
+    log('Signing out user')
 
     try {
-        await fetch(`${API_URL}/api/auth/google/logout`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId }),
-        })
-        log('Backend logout successful')
+        // Get current token to revoke
+        const token = await chrome.identity.getAuthToken({ interactive: false })
+
+        if (token) {
+            // Remove cached token
+            await chrome.identity.removeCachedAuthToken({ token })
+            log('Token removed from chrome.identity cache')
+
+            // Optionally clear all cached tokens
+            try {
+                await chrome.identity.clearAllCachedAuthTokens()
+                log('All cached tokens cleared')
+            } catch (e) {
+                logWarn('Failed to clear all cached tokens:', e)
+            }
+        }
     } catch (e) {
-        logWarn('Failed to logout on backend:', e)
+        logWarn('Failed to get/revoke token from chrome.identity:', e)
     }
 
-    clearTokens()
+    // Clear local storage
+    await clearTokens()
     setUnauthenticated()
     log('Sign out complete')
 }
 
 /**
- * Try to restore a previous session by refreshing the token
+ * Try to restore a previous session using chrome.identity
  * Call this on page load when settings indicate user was signed in
  * Returns true if session was restored, false otherwise
  */
 export async function tryRestoreSession(): Promise<boolean> {
     log('Attempting to restore session...')
 
-    const userId = localStorage.getItem(USER_ID_KEY)
-    if (!userId) {
-        log('No stored user ID')
-        setUnauthenticated()
-        return false
-    }
+    try {
+        // Try to get token silently (non-interactive)
+        const token = await chrome.identity.getAuthToken({ interactive: false })
 
-    const token = getAccessToken()
-    const expired = isTokenExpired()
-
-    // If token exists and not expired, validate it with Google
-    const tokenValid = token && !expired && (await validateToken(token))
-
-    if (!tokenValid) {
-        // Token missing, expired, or invalid - try to refresh
-        log('Token needs refresh (missing:', !token, ', expired:', expired, ')')
-        try {
-            await refreshToken()
-        } catch (error) {
-            logError('Session restore failed:', (error as Error).message)
+        if (!token) {
+            log('No token available from chrome.identity')
             setUnauthenticated()
             return false
         }
-    }
 
-    log('Session restored successfully')
-    setAuthenticated(localStorage.getItem(USER_EMAIL_KEY))
-    return true
+        log('Token obtained from chrome.identity')
+
+        // Validate token with Google
+        const tokenValid = await validateToken(token)
+
+        if (!tokenValid) {
+            log('Token validation failed')
+            setUnauthenticated()
+            return false
+        }
+
+        // Get user email
+        const email = await getUserEmail()
+
+        // Store token with estimated expiry
+        await storeTokens(token, '3600', email)
+        setAuthenticated(email)
+
+        log('Session restored successfully')
+        return true
+    } catch (error) {
+        logError('Session restore failed:', error)
+        setUnauthenticated()
+        return false
+    }
 }

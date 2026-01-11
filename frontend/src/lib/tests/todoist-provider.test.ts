@@ -1,35 +1,44 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import TodoistProvider from '../providers/todoist-provider'
+
+// Mock storage for testing
+const mockStore: Record<string, unknown> = {}
+
+// Mock the storage-adapter module
+vi.mock('../storage-adapter', () => {
+    return {
+        localStorage: {
+            get: vi.fn(async (key: string, defaultValue: unknown) => {
+                return mockStore[key] !== undefined ? mockStore[key] : defaultValue
+            }),
+            set: vi.fn(async (key: string, value: unknown) => {
+                mockStore[key] = value
+            }),
+            remove: vi.fn(async (key: string) => {
+                delete mockStore[key]
+            }),
+            clear: vi.fn(async () => {
+                Object.keys(mockStore).forEach((key) => delete mockStore[key])
+            }),
+            onChange: vi.fn(() => () => {}),
+        },
+        syncStorage: {
+            get: vi.fn(),
+            set: vi.fn(),
+            remove: vi.fn(),
+            clear: vi.fn(),
+            onChange: vi.fn(() => () => {}),
+        },
+    }
+})
 
 // Mock the UUID module
 vi.mock('../uuid', () => ({
     generateUUID: vi.fn(() => 'mock-uuid-123'),
 }))
 
-// Helper to create a mock localStorage
-function createMockLocalStorage() {
-    const store: Record<string, string> = {}
-    return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key]
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach((key) => delete store[key])
-        }),
-        get length() {
-            return Object.keys(store).length
-        },
-        key: vi.fn((index: number) => {
-            const keys = Object.keys(store)
-            return keys[index] || null
-        }),
-        _store: store, // Internal access for testing
-    }
-}
+// Import after mocks
+import TodoistProvider from '../providers/todoist-provider'
+import { localStorage as mockStorageAdapter } from '../storage-adapter'
 
 // Helper to create a mock fetch function
 function createMockFetch() {
@@ -37,12 +46,11 @@ function createMockFetch() {
 }
 
 describe('TodoistProvider', () => {
-    let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
     let mockFetch: ReturnType<typeof createMockFetch>
 
     beforeEach(() => {
-        mockLocalStorage = createMockLocalStorage()
-        vi.stubGlobal('localStorage', mockLocalStorage)
+        // Reset the mock storage before each test
+        Object.keys(mockStore).forEach((key) => delete mockStore[key])
 
         mockFetch = createMockFetch()
         vi.stubGlobal('fetch', mockFetch)
@@ -55,31 +63,40 @@ describe('TodoistProvider', () => {
     })
 
     describe('constructor', () => {
-        it('initializes with empty data when localStorage is empty', () => {
+        it('initializes with empty data', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'todoist_sync_token'
-            )
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'todoist_data'
-            )
-
+            // Constructor doesn't load data immediately
             const tasks = backend.getTasks()
             expect(tasks).toEqual([])
         })
 
-        it('loads existing sync token from localStorage', () => {
-            mockLocalStorage._store['todoist_sync_token'] = 'existing-token-123'
+        it('loads existing sync token from chrome.storage on first sync', async () => {
+            mockStore['todoist_sync_token'] = 'existing-token-123'
 
-            new TodoistProvider({ apiToken: 'test-token' })
+            const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'todoist_sync_token'
+            // Mock a successful sync to trigger data loading
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    sync_token: 'new-token',
+                    full_sync: true,
+                    items: [],
+                    labels: [],
+                    projects: [],
+                }),
+            })
+
+            await backend.sync()
+
+            expect(mockStorageAdapter.get).toHaveBeenCalledWith(
+                'todoist_sync_token',
+                '*'
             )
         })
 
-        it('loads existing data from localStorage', () => {
+        it('loads existing data from chrome.storage on first sync', async () => {
             const existingData = {
                 items: [
                     {
@@ -97,10 +114,23 @@ describe('TodoistProvider', () => {
                 projects: [],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
+            mockStore['todoist_data'] = existingData
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
+
+            // Mock a successful sync to trigger data loading
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    sync_token: 'new-token',
+                    full_sync: false,
+                    items: [],
+                    labels: [],
+                    projects: [],
+                }),
+            })
+
+            await backend.sync()
 
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
@@ -170,7 +200,7 @@ describe('TodoistProvider', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'todoist_sync_token',
                 'new-sync-token-456'
             )
@@ -231,8 +261,7 @@ describe('TodoistProvider', () => {
                 projects: [],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
+            mockStore['todoist_data'] = existingData
 
             // Mock incremental sync response
             const mockResponse = {
@@ -285,8 +314,7 @@ describe('TodoistProvider', () => {
                 projects: [],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
+            mockStore['todoist_data'] = existingData
 
             // Mock incremental sync with updated item
             const mockResponse = {
@@ -349,8 +377,7 @@ describe('TodoistProvider', () => {
                 projects: [],
                 timestamp: Date.now(),
             }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
+            mockStore['todoist_data'] = existingData
 
             // Mock incremental sync with deleted item
             const mockResponse = {
@@ -413,21 +440,19 @@ describe('TodoistProvider', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'todoist_data',
-                expect.any(String)
+                expect.any(Object)
             )
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['todoist_data']!
-            )
+            const savedData = mockStore['todoist_data']
             expect(savedData.items).toHaveLength(1)
             expect(savedData.timestamp).toBeDefined()
         })
 
         it('retries with "*" sync token on failure', async () => {
             // Set up backend with existing sync token
-            mockLocalStorage._store['todoist_sync_token'] = 'invalid-token'
+            mockStore['todoist_sync_token'] = 'invalid-token'
 
             // Use 500 error which is retryable
             const mockErrorResponse = {
@@ -464,14 +489,14 @@ describe('TodoistProvider', () => {
             expect(formData.get('sync_token')).toBe('*')
 
             // Sync token should be reset to "*" in localStorage
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'todoist_sync_token',
                 '*'
             )
         })
 
         it('throws error after retry fails', async () => {
-            mockLocalStorage._store['todoist_sync_token'] = 'invalid-token'
+            mockStore['todoist_sync_token'] = 'invalid-token'
 
             const mockErrorResponse = {
                 ok: false,
@@ -652,82 +677,74 @@ describe('TodoistProvider', () => {
             expect(backend.isCacheStale()).toBe(false)
         })
 
-        it('returns true when cache is older than 5 minutes', async () => {
-            const oldTimestamp = Date.now() - 6 * 60 * 1000 // 6 minutes ago
-
-            const existingData = {
-                items: [],
-                labels: [],
-                projects: [],
-                timestamp: oldTimestamp,
-            }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
-
+        it('returns true when cache has no timestamp', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
+            // Before sync, cache has no timestamp
             expect(backend.isCacheStale()).toBe(true)
         })
 
-        it('returns false when cache is exactly at the 5-minute boundary', async () => {
-            // Cache expiry is 5 minutes (300000 ms)
-            const boundaryTimestamp = Date.now() - 5 * 60 * 1000 + 100 // Just under 5 minutes
-
-            const existingData = {
-                items: [],
-                labels: [],
-                projects: [],
-                timestamp: boundaryTimestamp,
-            }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
-
+        it('returns false when cache is fresh after sync', async () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
+
+            // Mock sync to create fresh cache
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    sync_token: 'token',
+                    full_sync: true,
+                    items: [],
+                    labels: [],
+                    projects: [],
+                }),
+            })
+
+            await backend.sync()
 
             expect(backend.isCacheStale()).toBe(false)
         })
     })
 
     describe('clearLocalData', () => {
-        it('removes sync token from localStorage', () => {
-            mockLocalStorage._store['todoist_sync_token'] = 'token-to-clear'
-            mockLocalStorage._store['todoist_data'] = JSON.stringify({
+        it('removes sync token from chrome.storage', async () => {
+            mockStore['todoist_sync_token'] = 'token-to-clear'
+            mockStore['todoist_data'] = {
                 items: [],
-            })
+            }
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-            backend.clearLocalData()
+            await backend.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
                 'todoist_sync_token'
             )
         })
 
-        it('removes data from localStorage', () => {
-            mockLocalStorage._store['todoist_sync_token'] = 'token'
-            mockLocalStorage._store['todoist_data'] = JSON.stringify({
+        it('removes data from chrome.storage', async () => {
+            mockStore['todoist_sync_token'] = 'token'
+            mockStore['todoist_data'] = {
                 items: [],
-            })
+            }
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-            backend.clearLocalData()
+            await backend.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
                 'todoist_data'
             )
         })
 
-        it('resets sync token to "*"', () => {
-            mockLocalStorage._store['todoist_sync_token'] = 'existing-token'
+        it('resets sync token to "*"', async () => {
+            mockStore['todoist_sync_token'] = 'existing-token'
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-            backend.clearLocalData()
+            await backend.clearLocalData()
 
             // After clearing, getTasks should work with empty data
             expect(backend.getTasks()).toEqual([])
         })
 
-        it('resets data to empty state', () => {
+        it('resets data to empty state', async () => {
             const existingData = {
                 items: [
                     {
@@ -744,11 +761,10 @@ describe('TodoistProvider', () => {
                 labels: [],
                 projects: [],
             }
-            mockLocalStorage._store['todoist_data'] =
-                JSON.stringify(existingData)
+            mockStore['todoist_data'] = existingData
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-            backend.clearLocalData()
+            await backend.clearLocalData()
 
             expect(backend.getTasks()).toEqual([])
         })

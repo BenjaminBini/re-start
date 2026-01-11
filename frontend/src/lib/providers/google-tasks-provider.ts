@@ -4,6 +4,7 @@ import { createApiClient } from './google-auth'
 import type { TaskProviderConfig, EnrichedTask } from '../types'
 import { createLogger } from '../logger'
 import { AuthError, SyncError } from '../errors'
+import { localStorage as storageAdapter } from '../storage-adapter'
 
 interface GoogleTask {
     id: string
@@ -69,28 +70,43 @@ class GoogleTasksProvider extends TaskProvider {
         // Migrate old storage keys if needed
         googleAuth.migrateStorageKeys()
 
-        this.data = this.loadStoredData()
-        this.defaultTasklistId =
-            localStorage.getItem(this.tasklistIdKey) ?? '@default'
+        // Initialize with empty data - will be loaded on first sync
+        this.data = { tasklists: [], tasks: [] }
+        this.defaultTasklistId = '@default'
+
+        // Load data asynchronously
+        this.loadStoredData()
 
         // Create API client with base URL
         this.apiRequest = createApiClient(this.baseUrl)
     }
 
-    private loadStoredData(): GoogleTasksData {
-        const stored = localStorage.getItem(this.dataKey)
-        if (!stored) return { tasklists: [], tasks: [] }
-
+    private async loadStoredData(): Promise<void> {
         try {
-            const parsed = JSON.parse(stored) as GoogleTasksData
-            return {
-                tasklists: parsed.tasklists || [],
-                tasks: parsed.tasks || [],
-                timestamp: parsed.timestamp,
+            const stored = await storageAdapter.get<GoogleTasksData | null>(
+                this.dataKey,
+                null
+            )
+            if (stored) {
+                this.data = {
+                    tasklists: stored.tasklists || [],
+                    tasks: stored.tasks || [],
+                    timestamp: stored.timestamp,
+                }
             }
-        } catch {
-            logger.warn('Failed to parse stored Google Tasks data, using empty state')
-            return { tasklists: [], tasks: [] }
+
+            const storedTasklistId = await storageAdapter.get<string | null>(
+                this.tasklistIdKey,
+                null
+            )
+            if (storedTasklistId) {
+                this.defaultTasklistId = storedTasklistId
+            }
+        } catch (error) {
+            logger.warn(
+                'Failed to load stored Google Tasks data, using empty state:',
+                error
+            )
         }
     }
 
@@ -113,7 +129,7 @@ class GoogleTasksProvider extends TaskProvider {
      */
     async signOut(): Promise<void> {
         await googleAuth.signOut()
-        this.clearLocalData()
+        await this.clearLocalData()
     }
 
     /**
@@ -156,7 +172,7 @@ class GoogleTasksProvider extends TaskProvider {
                 if (!this.defaultTasklistId || !hasValidTasklist) {
                     this.defaultTasklistId =
                         this.data.tasklists[0]?.id ?? '@default'
-                    localStorage.setItem(
+                    await storageAdapter.set(
                         this.tasklistIdKey,
                         this.defaultTasklistId
                     )
@@ -187,7 +203,7 @@ class GoogleTasksProvider extends TaskProvider {
             }
 
             this.data.timestamp = Date.now()
-            localStorage.setItem(this.dataKey, JSON.stringify(this.data))
+            await storageAdapter.set(this.dataKey, this.data)
 
             logger.log('Google Tasks sync successful:', {
                 tasklists: this.data.tasklists.length,
@@ -388,9 +404,9 @@ class GoogleTasksProvider extends TaskProvider {
     /**
      * Clear local storage
      */
-    clearLocalData(): void {
-        localStorage.removeItem(this.dataKey)
-        localStorage.removeItem(this.tasklistIdKey)
+    async clearLocalData(): Promise<void> {
+        await storageAdapter.remove(this.dataKey)
+        await storageAdapter.remove(this.tasklistIdKey)
         this.data = { tasklists: [], tasks: [] }
         this.defaultTasklistId = '@default'
     }

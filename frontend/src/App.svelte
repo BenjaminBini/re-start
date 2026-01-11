@@ -66,8 +66,11 @@
 
     // Title and custom CSS now handled via <svelte:head> in markup
 
+    // Save settings to chrome.storage.sync whenever they change
     $effect(() => {
-        saveSettings(settings)
+        saveSettings(settings).catch((error) => {
+            console.error('[App] Failed to save settings:', error)
+        })
     })
 
     // Handle OAuth callback on page load

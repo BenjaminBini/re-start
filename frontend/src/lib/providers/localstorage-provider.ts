@@ -8,6 +8,7 @@ import type {
 import { generateUUID } from '../uuid'
 import { createLogger } from '../logger'
 import { ValidationError } from '../errors'
+import { localStorage as storageAdapter } from '../storage-adapter'
 
 interface LocalTaskData {
     items: RawTask[]
@@ -23,49 +24,56 @@ const logger = createLogger('LocalStorage')
 class LocalStorageProvider extends TaskProvider {
     private dataKey: string
     protected override data: LocalTaskData
+    private initPromise: Promise<void>
 
     constructor(config: TaskProviderConfig) {
         super(config)
         this.dataKey = 'local_tasks'
-        this.data = this.loadData()
+        this.data = { items: [] }
+        // Initialize data asynchronously and cache the promise
+        this.initPromise = this.loadData()
     }
 
     /**
-     * Load tasks from localStorage
+     * Load tasks from chrome.storage.local
      * Returns empty data if parsing fails (graceful degradation)
      */
-    private loadData(): LocalTaskData {
-        const stored = localStorage.getItem(this.dataKey)
-        if (!stored) {
-            return { items: [] }
-        }
+    private async loadData(): Promise<void> {
         try {
-            return JSON.parse(stored) as LocalTaskData
+            const stored = await storageAdapter.get<LocalTaskData>(this.dataKey, { items: [] })
+            this.data = stored
         } catch (error) {
-            // Log the parse error with structured warning
-            // Use ValidationError for structured error information, but return empty for graceful recovery
+            // Log the storage error with structured warning
+            // Use ValidationError for structured error information, but set empty data for graceful recovery
             const parseError = ValidationError.parseError(
-                'Failed to parse local tasks from localStorage',
+                'Failed to load local tasks from storage',
                 error instanceof Error ? error : undefined
             )
-            logger.error('Parse error loading local tasks:', {
+            logger.error('Error loading local tasks:', {
                 error: parseError.message,
                 code: parseError.code,
                 userMessage: parseError.userMessage,
                 originalError: error,
             })
-            // Return empty data to allow the app to continue functioning
-            // This is preferable to throwing since localStorage is the source of truth
+            // Set empty data to allow the app to continue functioning
+            // This is preferable to throwing since storage is the source of truth
             // and corrupted data should not break the entire app
-            return { items: [] }
+            this.data = { items: [] }
         }
     }
 
     /**
-     * Save tasks to localStorage
+     * Ensure data is loaded before proceeding
      */
-    private saveData(): void {
-        localStorage.setItem(this.dataKey, JSON.stringify(this.data))
+    private async ensureInitialized(): Promise<void> {
+        await this.initPromise
+    }
+
+    /**
+     * Save tasks to chrome.storage.local
+     */
+    private async saveData(): Promise<void> {
+        await storageAdapter.set(this.dataKey, this.data)
     }
 
     /**
@@ -81,15 +89,17 @@ class LocalStorageProvider extends TaskProvider {
     override invalidateCache(): void {}
 
     /**
-     * Sync method (no-op for localStorage, but maintains interface)
+     * Sync method (ensures data is loaded)
      */
     async sync(_resourceTypes?: string[]): Promise<void> {
-        // LocalStorage doesn't need to sync with a server
-        // This method exists to maintain interface compatibility
+        // Ensure data is loaded from storage
+        await this.ensureInitialized()
     }
 
     /**
      * Get upcoming tasks and recently completed tasks
+     * Note: This is a synchronous method but relies on data loaded in constructor.
+     * Callers should await sync() or other async methods first to ensure data is loaded.
      */
     getTasks(): EnrichedTask[] {
         if (!this.data.items) return []
@@ -130,11 +140,12 @@ class LocalStorageProvider extends TaskProvider {
      * Complete a task
      */
     async completeTask(taskId: string): Promise<void> {
+        await this.ensureInitialized()
         const task = this.data.items.find((item) => item.id === taskId)
         if (task) {
             task.checked = true
             task.completed_at = new Date().toISOString()
-            this.saveData()
+            await this.saveData()
         }
     }
 
@@ -142,11 +153,12 @@ class LocalStorageProvider extends TaskProvider {
      * Uncomplete a task (undo completion)
      */
     async uncompleteTask(taskId: string): Promise<void> {
+        await this.ensureInitialized()
         const task = this.data.items.find((item) => item.id === taskId)
         if (task) {
             task.checked = false
             task.completed_at = null
-            this.saveData()
+            await this.saveData()
         }
     }
 
@@ -154,10 +166,11 @@ class LocalStorageProvider extends TaskProvider {
      * Delete a task
      */
     async deleteTask(taskId: string): Promise<void> {
+        await this.ensureInitialized()
         const idx = this.data.items.findIndex((item) => item.id === taskId)
         if (idx !== -1) {
             this.data.items.splice(idx, 1)
-            this.saveData()
+            await this.saveData()
         }
     }
 
@@ -165,6 +178,7 @@ class LocalStorageProvider extends TaskProvider {
      * Add a new task
      */
     async addTask(content: string, due: string | null): Promise<void> {
+        await this.ensureInitialized()
         const newDue: TaskDue | null = due ? { date: due } : null
         const newTask: RawTask = {
             id: generateUUID(),
@@ -179,7 +193,7 @@ class LocalStorageProvider extends TaskProvider {
         }
 
         this.data.items.push(newTask)
-        this.saveData()
+        await this.saveData()
     }
 
     /**

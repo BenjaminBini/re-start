@@ -4,6 +4,7 @@ import { generateUUID } from '../uuid'
 import type { CalendarEvent, GoogleCalendar } from '../types'
 import { createLogger } from '../logger'
 import { AuthError, SyncError, ValidationError } from '../errors'
+import { localStorage as storageAdapter } from '../storage-adapter'
 
 interface GoogleCalendarItem {
     id: string
@@ -78,13 +79,35 @@ class GoogleCalendarProvider {
         // Migrate old storage keys if needed
         googleAuth.migrateStorageKeys()
 
-        const storedData = localStorage.getItem(this.dataKey)
-        this.data = storedData
-            ? (JSON.parse(storedData) as GoogleCalendarData)
-            : {}
+        // Initialize with empty data - will be loaded on first sync
+        this.data = {}
+
+        // Load data asynchronously
+        this.loadStoredData()
 
         // Create API client with base URL
         this.apiRequest = createApiClient(this.baseUrl)
+    }
+
+    private async loadStoredData(): Promise<void> {
+        try {
+            const stored = await storageAdapter.get<GoogleCalendarData | null>(
+                this.dataKey,
+                null
+            )
+            if (stored) {
+                this.data = {
+                    calendars: stored.calendars || [],
+                    events: stored.events || [],
+                    timestamp: stored.timestamp,
+                }
+            }
+        } catch (error) {
+            logger.warn(
+                'Failed to load stored Google Calendar data, using empty state:',
+                error
+            )
+        }
     }
 
     /**
@@ -194,7 +217,7 @@ class GoogleCalendarProvider {
             this.data.events = eventArrays.flat()
             this.data.timestamp = Date.now()
 
-            localStorage.setItem(this.dataKey, JSON.stringify(this.data))
+            await storageAdapter.set(this.dataKey, this.data)
 
             logger.log('Google Calendar sync successful:', {
                 calendars: this.data.calendars?.length || 0,
@@ -325,8 +348,8 @@ class GoogleCalendarProvider {
     /**
      * Clear local storage
      */
-    clearLocalData(): void {
-        localStorage.removeItem(this.dataKey)
+    async clearLocalData(): Promise<void> {
+        await storageAdapter.remove(this.dataKey)
         this.data = {}
     }
 

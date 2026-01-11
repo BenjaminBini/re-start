@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-    test: {},
+    test: {
+        setupFiles: ['./src/lib/tests/setup.ts'],
+    },
 })

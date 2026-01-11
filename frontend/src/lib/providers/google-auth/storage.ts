@@ -1,9 +1,10 @@
 /**
- * Google OAuth localStorage operations
+ * Google OAuth chrome.storage.local operations
  * Handles token storage, retrieval, and scope management
  */
 
 import { generateUUID } from '../../uuid'
+import { localStorage as storage } from '../../storage-adapter'
 import {
     TOKEN_KEY,
     TOKEN_EXPIRY_KEY,
@@ -17,11 +18,11 @@ import { log } from './logger'
 /**
  * Get or create a unique user ID for this browser
  */
-export function getUserId(): string {
-    let userId = localStorage.getItem(USER_ID_KEY)
+export async function getUserId(): Promise<string> {
+    let userId = await storage.get<string | null>(USER_ID_KEY, null)
     if (!userId) {
         userId = generateUUID()
-        localStorage.setItem(USER_ID_KEY, userId)
+        await storage.set(USER_ID_KEY, userId)
         log('Created new user ID:', userId)
     }
     return userId
@@ -30,41 +31,42 @@ export function getUserId(): string {
 /**
  * Get the current access token
  */
-export function getAccessToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY)
+export async function getAccessToken(): Promise<string | null> {
+    return await storage.get<string | null>(TOKEN_KEY, null)
 }
 
 /**
  * Get user email
  */
-export function getUserEmail(): string | null {
-    return localStorage.getItem(USER_EMAIL_KEY)
+export async function getUserEmail(): Promise<string | null> {
+    return await storage.get<string | null>(USER_EMAIL_KEY, null)
 }
 
 /**
  * Check if there's a stored user ID (indicates previous sign-in attempt)
  */
-export function hasStoredUserId(): boolean {
-    return !!localStorage.getItem(USER_ID_KEY)
+export async function hasStoredUserId(): Promise<boolean> {
+    const userId = await storage.get<string | null>(USER_ID_KEY, null)
+    return !!userId
 }
 
 /**
- * Store tokens in localStorage
+ * Store tokens in chrome.storage.local
  * Note: Caller is responsible for updating auth state
  */
-export function storeTokens(
+export async function storeTokens(
     accessToken: string,
     expiresIn: string | null,
     email: string | null = null
-): void {
-    localStorage.setItem(TOKEN_KEY, accessToken)
+): Promise<void> {
+    await storage.set(TOKEN_KEY, accessToken)
 
     const expiresInMs = (parseInt(expiresIn || '3600', 10) || 3600) * 1000
     const expiryTime = Date.now() + expiresInMs
-    localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
+    await storage.set(TOKEN_EXPIRY_KEY, expiryTime.toString())
 
     if (email) {
-        localStorage.setItem(USER_EMAIL_KEY, email)
+        await storage.set(USER_EMAIL_KEY, email)
     }
 
     const expiresInMin = Math.round(expiresInMs / 60000)
@@ -79,45 +81,47 @@ export function storeTokens(
  * Clear all stored tokens
  * Note: Caller is responsible for updating auth state
  */
-export function clearTokens(): void {
-    log('Clearing all tokens from localStorage')
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(TOKEN_EXPIRY_KEY)
-    localStorage.removeItem(USER_EMAIL_KEY)
-    localStorage.removeItem(SCOPES_KEY)
+export async function clearTokens(): Promise<void> {
+    log('Clearing all tokens from chrome.storage.local')
+    await storage.remove(TOKEN_KEY)
+    await storage.remove(TOKEN_EXPIRY_KEY)
+    await storage.remove(USER_EMAIL_KEY)
+    await storage.remove(SCOPES_KEY)
 }
 
 /**
  * Check if a specific scope is granted
  */
-export function hasScope(scope: string): boolean {
-    const scopes = localStorage.getItem(SCOPES_KEY) || ''
+export async function hasScope(scope: string): Promise<boolean> {
+    const scopes = await storage.get<string>(SCOPES_KEY, '')
     return scopes.split(' ').includes(scope)
 }
 
 /**
  * Check if Meet scope is granted
  */
-export function hasMeetScope(): boolean {
-    return hasScope(MEET_SCOPE)
+export async function hasMeetScope(): Promise<boolean> {
+    return await hasScope(MEET_SCOPE)
 }
 
 /**
  * Migrate from old storage keys to new ones
  */
-export function migrateStorageKeys(): void {
+export async function migrateStorageKeys(): Promise<void> {
     const oldTokenKey = 'google_tasks_token'
     const oldExpiryKey = 'google_tasks_token_expiry'
 
-    const oldToken = localStorage.getItem(oldTokenKey)
-    if (oldToken && !localStorage.getItem(TOKEN_KEY)) {
-        localStorage.setItem(TOKEN_KEY, oldToken)
-        localStorage.removeItem(oldTokenKey)
+    const oldToken = await storage.get<string | null>(oldTokenKey, null)
+    const currentToken = await storage.get<string | null>(TOKEN_KEY, null)
+    if (oldToken && !currentToken) {
+        await storage.set(TOKEN_KEY, oldToken)
+        await storage.remove(oldTokenKey)
     }
 
-    const oldExpiry = localStorage.getItem(oldExpiryKey)
-    if (oldExpiry && !localStorage.getItem(TOKEN_EXPIRY_KEY)) {
-        localStorage.setItem(TOKEN_EXPIRY_KEY, oldExpiry)
-        localStorage.removeItem(oldExpiryKey)
+    const oldExpiry = await storage.get<string | null>(oldExpiryKey, null)
+    const currentExpiry = await storage.get<string | null>(TOKEN_EXPIRY_KEY, null)
+    if (oldExpiry && !currentExpiry) {
+        await storage.set(TOKEN_EXPIRY_KEY, oldExpiry)
+        await storage.remove(oldExpiryKey)
     }
 }

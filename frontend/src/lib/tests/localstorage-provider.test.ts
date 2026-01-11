@@ -1,51 +1,54 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import LocalStorageProvider from '../providers/localstorage-provider'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock storage for testing
+const mockStore: Record<string, unknown> = {}
+
+// Mock the storage-adapter module
+vi.mock('../storage-adapter', () => {
+    return {
+        localStorage: {
+            get: vi.fn(async (key: string, defaultValue: unknown) => {
+                return mockStore[key] !== undefined ? mockStore[key] : defaultValue
+            }),
+            set: vi.fn(async (key: string, value: unknown) => {
+                mockStore[key] = value
+            }),
+            remove: vi.fn(async (key: string) => {
+                delete mockStore[key]
+            }),
+            clear: vi.fn(async () => {
+                Object.keys(mockStore).forEach((key) => delete mockStore[key])
+            }),
+            onChange: vi.fn(() => () => {}),
+        },
+        syncStorage: {
+            get: vi.fn(),
+            set: vi.fn(),
+            remove: vi.fn(),
+            clear: vi.fn(),
+            onChange: vi.fn(() => () => {}),
+        },
+    }
+})
 
 // Mock the UUID module
 vi.mock('../uuid', () => ({
     generateUUID: vi.fn(() => 'mock-uuid-123'),
 }))
 
-// Helper to create a mock localStorage
-function createMockLocalStorage() {
-    const store: Record<string, string> = {}
-    return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key]
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach((key) => delete store[key])
-        }),
-        get length() {
-            return Object.keys(store).length
-        },
-        key: vi.fn((index: number) => {
-            const keys = Object.keys(store)
-            return keys[index] || null
-        }),
-        _store: store, // Internal access for testing
-    }
-}
+// Import after mocks
+import LocalStorageProvider from '../providers/localstorage-provider'
+import { localStorage as mockStorageAdapter } from '../storage-adapter'
 
 describe('LocalStorageProvider', () => {
-    let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
-
     beforeEach(() => {
-        mockLocalStorage = createMockLocalStorage()
-        vi.stubGlobal('localStorage', mockLocalStorage)
+        // Reset the mock storage before each test
+        Object.keys(mockStore).forEach((key) => delete mockStore[key])
         vi.clearAllMocks()
     })
 
-    afterEach(() => {
-        vi.unstubAllGlobals()
-    })
-
     describe('loadData', () => {
-        it('loads data from localStorage on initialization', () => {
+        it('loads data from chrome.storage.local on initialization', async () => {
             const taskData = {
                 items: [
                     {
@@ -61,36 +64,40 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync() // Ensure initialization completes
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith('local_tasks')
+            expect(mockStorageAdapter.get).toHaveBeenCalledWith('local_tasks', { items: [] })
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.content).toBe('Test task')
         })
 
-        it('returns empty items array when localStorage is empty', () => {
+        it('returns empty items array when storage is empty', async () => {
             const backend = new LocalStorageProvider({})
+            await backend.sync() // Ensure initialization completes
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith('local_tasks')
+            expect(mockStorageAdapter.get).toHaveBeenCalledWith('local_tasks', { items: [] })
             const tasks = backend.getTasks()
             expect(tasks).toEqual([])
         })
 
-        it('handles corrupted JSON data gracefully', () => {
+        it('handles storage errors gracefully', async () => {
             // Suppress console.error for this test since we expect an error to be logged
             const consoleErrorSpy = vi
                 .spyOn(console, 'error')
                 .mockImplementation(() => {})
 
-            mockLocalStorage._store['local_tasks'] = 'invalid json {'
+            // Mock storage error
+            mockStorageAdapter.get.mockRejectedValueOnce(new Error('Storage error'))
 
-            // Should not throw - gracefully handles corrupted data
+            // Should not throw - gracefully handles storage errors
             const backend = new LocalStorageProvider({})
+            await backend.sync() // Ensure initialization completes
 
-            // Should return empty tasks when data is corrupted
+            // Should return empty tasks when storage fails
             const tasks = backend.getTasks()
             expect(tasks).toEqual([])
 
@@ -102,15 +109,13 @@ describe('LocalStorageProvider', () => {
     })
 
     describe('saveData', () => {
-        it('saves data to localStorage when tasks are modified', async () => {
+        it('saves data to chrome.storage.local when tasks are modified', async () => {
             const backend = new LocalStorageProvider({})
 
             await backend.addTask('New task', null)
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalled()
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']!
-            )
+            expect(mockStorageAdapter.set).toHaveBeenCalled()
+            const savedData = mockStore['local_tasks'] as any
             expect(savedData.items).toHaveLength(1)
             expect(savedData.items[0]!.content).toBe('New task')
         })
@@ -131,27 +136,26 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.completeTask('task-1')
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
-            )
+            const savedData = mockStore['local_tasks'] as any
             expect(savedData.items[0]!.checked).toBe(true)
             expect(savedData.items[0]!.completed_at).not.toBeNull()
         })
     })
 
     describe('getTasks', () => {
-        it('returns empty array when no tasks exist', () => {
+        it('returns empty array when no tasks exist', async () => {
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
             expect(tasks).toEqual([])
         })
 
-        it('filters out deleted tasks', () => {
+        it('filters out deleted tasks', async () => {
             const taskData = {
                 items: [
                     {
@@ -178,16 +182,17 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.content).toBe('Active task')
         })
 
-        it('includes unchecked tasks', () => {
+        it('includes unchecked tasks', async () => {
             const taskData = {
                 items: [
                     {
@@ -203,16 +208,17 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.checked).toBe(false)
         })
 
-        it('includes recently completed tasks (within 5 minutes)', () => {
+        it('includes recently completed tasks (within 5 minutes)', async () => {
             const now = new Date()
             const recentCompletion = new Date(
                 now.getTime() - 2 * 60 * 1000
@@ -233,16 +239,17 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.checked).toBe(true)
         })
 
-        it('excludes completed tasks older than 5 minutes', () => {
+        it('excludes completed tasks older than 5 minutes', async () => {
             const now = new Date()
             const oldCompletion = new Date(
                 now.getTime() - 10 * 60 * 1000
@@ -263,15 +270,16 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks).toEqual([])
         })
 
-        it('enriches tasks with project_name and label_names (empty for localStorage)', () => {
+        it('enriches tasks with project_name and label_names (empty for localStorage)', async () => {
             const taskData = {
                 items: [
                     {
@@ -287,16 +295,17 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.project_name).toBe('')
             expect(tasks[0]!.label_names).toEqual([])
         })
 
-        it('parses due dates without time as end of day', () => {
+        it('parses due dates without time as end of day', async () => {
             const taskData = {
                 items: [
                     {
@@ -312,9 +321,10 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.due_date).toBeInstanceOf(Date)
@@ -329,7 +339,7 @@ describe('LocalStorageProvider', () => {
             expect(dueDate.getSeconds()).toBe(59)
         })
 
-        it('parses due dates with time and sets has_time flag', () => {
+        it('parses due dates with time and sets has_time flag', async () => {
             const taskData = {
                 items: [
                     {
@@ -345,9 +355,10 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             expect(tasks[0]!.due_date).toBeInstanceOf(Date)
@@ -358,7 +369,7 @@ describe('LocalStorageProvider', () => {
             expect(dueDate.getTime()).toBe(expectedDate.getTime())
         })
 
-        it('sorts tasks using TaskProvider.sortTasks', () => {
+        it('sorts tasks using TaskProvider.sortTasks', async () => {
             const taskData = {
                 items: [
                     {
@@ -385,9 +396,10 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync()
             const tasks = backend.getTasks()
 
             // Unchecked task should be first (sortTasks behavior)
@@ -459,29 +471,24 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.addTask('Second task', null)
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+            const savedData = (
+                mockStore['local_tasks']
             )
             expect(savedData.items[1]!.child_order).toBe(1)
         })
 
-        it('persists the new task to localStorage', async () => {
+        it('persists the new task to chrome.storage.local', async () => {
             const backend = new LocalStorageProvider({})
 
             await backend.addTask('Persist me', null)
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-                'local_tasks',
-                expect.any(String)
-            )
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']!
-            )
+            expect(mockStorageAdapter.set).toHaveBeenCalled()
+            const savedData = mockStore['local_tasks'] as any
             expect(savedData.items[0]!.content).toBe('Persist me')
         })
     })
@@ -503,7 +510,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.completeTask('task-1')
@@ -528,7 +535,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.completeTask('task-1')
@@ -554,13 +561,13 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.completeTask('task-1')
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+            const savedData = (
+                mockStore['local_tasks']
             )
             expect(savedData.items[0]!.checked).toBe(true)
             expect(savedData.items[0]!.completed_at).not.toBeNull()
@@ -582,7 +589,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.completeTask('non-existent-id')
@@ -609,7 +616,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.uncompleteTask('task-1')
@@ -634,7 +641,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.uncompleteTask('task-1')
@@ -659,13 +666,13 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.uncompleteTask('task-1')
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+            const savedData = (
+                mockStore['local_tasks']
             )
             expect(savedData.items[0]!.checked).toBe(false)
             expect(savedData.items[0]!.completed_at).toBeNull()
@@ -687,7 +694,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.uncompleteTask('non-existent-id')
@@ -725,7 +732,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.deleteTask('task-1')
@@ -751,13 +758,13 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.deleteTask('task-1')
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['local_tasks']
+            const savedData = (
+                mockStore['local_tasks']
             )
             expect(savedData.items).toHaveLength(0)
         })
@@ -778,7 +785,7 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
             await backend.deleteTask('non-existent-id')
@@ -812,7 +819,7 @@ describe('LocalStorageProvider', () => {
             expect(() => backend.clearLocalData()).not.toThrow()
         })
 
-        it('does not clear localStorage data', () => {
+        it('does not clear localStorage data', async () => {
             const taskData = {
                 items: [
                     {
@@ -828,9 +835,10 @@ describe('LocalStorageProvider', () => {
                     },
                 ],
             }
-            mockLocalStorage._store['local_tasks'] = JSON.stringify(taskData)
+            mockStore['local_tasks'] = taskData
 
             const backend = new LocalStorageProvider({})
+            await backend.sync() // Load data first
             backend.clearLocalData()
 
             // Data should still be present

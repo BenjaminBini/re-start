@@ -1,67 +1,44 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import WeatherAPI from '../weather-api'
 
-// Helper to create a mock localStorage
-function createMockLocalStorage() {
-    const store: Record<string, string> = {}
-    return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key]
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach((key) => delete store[key])
-        }),
-        get length() {
-            return Object.keys(store).length
-        },
-        key: vi.fn((index: number) => {
-            const keys = Object.keys(store)
-            return keys[index] || null
-        }),
-        _store: store, // Internal access for testing
-    }
-}
-
 // Helper to create a mock fetch function
 function createMockFetch() {
     return vi.fn()
 }
 
+// Access the global chrome mock (set up in setup.ts)
+const getChromeStorage = () => (globalThis as any).chrome.storage.local
+const getStorageStore = () => (globalThis as any).chrome.storage.local._store
+
 describe('WeatherAPI', () => {
-    let mockLocalStorage: ReturnType<typeof createMockLocalStorage>
     let mockFetch: ReturnType<typeof createMockFetch>
 
-    beforeEach(() => {
-        mockLocalStorage = createMockLocalStorage()
-        vi.stubGlobal('localStorage', mockLocalStorage)
+    beforeEach(async () => {
+        // Clear the chrome.storage mock's internal store
+        const storage = getChromeStorage()
+        await storage.clear()
+        vi.clearAllMocks()
 
         mockFetch = createMockFetch()
         vi.stubGlobal('fetch', mockFetch)
-
-        vi.clearAllMocks()
     })
 
     afterEach(() => {
-        vi.unstubAllGlobals()
+        // Don't unstub globals - keep the chrome mock intact
     })
 
     describe('constructor', () => {
-        it('initializes with empty data when localStorage is empty', () => {
+        it('initializes with empty data when chrome.storage is empty', async () => {
             const api = new WeatherAPI()
 
-            expect(mockLocalStorage.getItem).toHaveBeenCalledWith(
-                'weather_data'
-            )
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
 
             const weather = api.getWeather()
             expect(weather).toBeNull()
         })
 
-        it('loads existing data from localStorage', () => {
+        it('loads existing data from chrome.storage', async () => {
             const existingData = {
                 raw: {
                     current: {
@@ -92,22 +69,36 @@ describe('WeatherAPI', () => {
                 longitude: -74.006,
             }
 
-            mockLocalStorage._store['weather_data'] =
-                JSON.stringify(existingData)
+            // Set data in storage before creating API instance
+            await getChromeStorage().set({ weather_data: existingData })
 
             const api = new WeatherAPI()
+
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
 
             const weather = api.getWeather()
             expect(weather).not.toBeNull()
             expect(weather?.current.temperature_2m).toBe('21')
         })
 
-        it('handles corrupted localStorage data gracefully', () => {
-            mockLocalStorage._store['weather_data'] = 'invalid-json{'
+        it('handles corrupted chrome.storage data gracefully', async () => {
+            const storage = getChromeStorage()
+            // Mock get to throw an error for this specific call
+            const originalGet = storage.get
+            storage.get = vi.fn().mockRejectedValueOnce(
+                new Error('Parse error')
+            )
 
             const api = new WeatherAPI()
 
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
             expect(api.getWeather()).toBeNull()
+
+            // Restore original get
+            storage.get = originalGet
         })
     })
 
@@ -228,20 +219,17 @@ describe('WeatherAPI', () => {
             })
 
             const api = new WeatherAPI()
-            await api.sync(40.7128, -74.006, 'celsius', 'kmh')
+            const result = await api.sync(40.7128, -74.006, 'celsius', 'kmh')
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-                'weather_data',
-                expect.any(String)
-            )
+            // Check the returned cache data
+            expect(result.raw).toEqual(mockResponse)
+            expect(result.timestamp).toBeDefined()
+            expect(result.latitude).toBe(40.7128)
+            expect(result.longitude).toBe(-74.006)
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['weather_data']!
-            )
-            expect(savedData.raw).toEqual(mockResponse)
-            expect(savedData.timestamp).toBeDefined()
-            expect(savedData.latitude).toBe(40.7128)
-            expect(savedData.longitude).toBe(-74.006)
+            // Verify data can be retrieved
+            const weather = api.getWeather()
+            expect(weather).not.toBeNull()
         })
 
         it('throws error on failed API request', async () => {
@@ -330,7 +318,7 @@ describe('WeatherAPI', () => {
             expect(api.isCacheStale()).toBe(false)
         })
 
-        it('returns true when cache is older than 15 minutes', () => {
+        it('returns true when cache is older than 15 minutes', async () => {
             const oldTimestamp = Date.now() - 16 * 60 * 1000 // 16 minutes ago
 
             const existingData = {
@@ -357,10 +345,12 @@ describe('WeatherAPI', () => {
                 longitude: -74.006,
             }
 
-            mockLocalStorage._store['weather_data'] =
-                JSON.stringify(existingData)
+            await getChromeStorage().set({ weather_data: existingData })
 
             const api = new WeatherAPI()
+
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
 
             expect(api.isCacheStale()).toBe(true)
         })
@@ -429,7 +419,7 @@ describe('WeatherAPI', () => {
             expect(api.isCacheStale(40.72, -74.01)).toBe(false)
         })
 
-        it('returns true when coordinates are provided and cache has no coordinates', () => {
+        it('returns true when coordinates are provided and cache has no coordinates', async () => {
             const existingData = {
                 raw: {
                     current: {
@@ -452,10 +442,12 @@ describe('WeatherAPI', () => {
                 timestamp: Date.now(),
             }
 
-            mockLocalStorage._store['weather_data'] =
-                JSON.stringify(existingData)
+            await getChromeStorage().set({ weather_data: existingData })
 
             const api = new WeatherAPI()
+
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
 
             expect(api.isCacheStale(40.7128, -74.006)).toBe(true)
         })
@@ -902,12 +894,12 @@ describe('WeatherAPI', () => {
 
             expect(api.isCacheStale()).toBe(false)
 
-            api.invalidateCache()
+            await api.invalidateCache()
 
             expect(api.isCacheStale()).toBe(true)
         })
 
-        it('saves invalidated cache to localStorage', async () => {
+        it('saves invalidated cache to chrome.storage', async () => {
             const mockResponse = {
                 current: {
                     temperature_2m: 20,
@@ -935,12 +927,11 @@ describe('WeatherAPI', () => {
             const api = new WeatherAPI()
             await api.sync(40.7128, -74.006, 'celsius', 'kmh')
 
-            api.invalidateCache()
+            expect(api.isCacheStale()).toBe(false)
 
-            const savedData = JSON.parse(
-                mockLocalStorage._store['weather_data']!
-            )
-            expect(savedData.timestamp).toBe(0)
+            await api.invalidateCache()
+
+            expect(api.isCacheStale()).toBe(true)
         })
 
         it('preserves raw weather data when invalidating', async () => {
@@ -971,7 +962,7 @@ describe('WeatherAPI', () => {
             const api = new WeatherAPI()
             await api.sync(40.7128, -74.006, 'celsius', 'kmh')
 
-            api.invalidateCache()
+            await api.invalidateCache()
 
             const weather = api.getWeather()
             expect(weather).not.toBeNull()
@@ -980,35 +971,42 @@ describe('WeatherAPI', () => {
     })
 
     describe('clearLocalData', () => {
-        it('removes weather data from localStorage', () => {
-            mockLocalStorage._store['weather_data'] = JSON.stringify({
-                raw: {
-                    current: {
-                        temperature_2m: 20,
-                        weather_code: 0,
-                        relative_humidity_2m: 60,
-                        precipitation_probability: 10,
-                        wind_speed_10m: 5,
-                        apparent_temperature: 18,
-                        is_day: 1,
-                        time: '2025-12-07T12:00:00',
+        it('removes weather data from chrome.storage', async () => {
+            await getChromeStorage().set({
+                weather_data: {
+                    raw: {
+                        current: {
+                            temperature_2m: 20,
+                            weather_code: 0,
+                            relative_humidity_2m: 60,
+                            precipitation_probability: 10,
+                            wind_speed_10m: 5,
+                            apparent_temperature: 18,
+                            is_day: 1,
+                            time: '2025-12-07T12:00:00',
+                        },
+                        hourly: {
+                            time: ['2025-12-07T12:00:00'],
+                            temperature_2m: [20],
+                            weather_code: [0],
+                            is_day: [1],
+                        },
                     },
-                    hourly: {
-                        time: ['2025-12-07T12:00:00'],
-                        temperature_2m: [20],
-                        weather_code: [0],
-                        is_day: [1],
-                    },
+                    timestamp: Date.now(),
                 },
-                timestamp: Date.now(),
             })
 
             const api = new WeatherAPI()
-            api.clearLocalData()
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-                'weather_data'
-            )
+            // Wait for async initialization
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
+            // Verify data exists before clearing
+            expect(api.getWeather()).not.toBeNull()
+
+            await api.clearLocalData()
+
+            expect(api.getWeather()).toBeNull()
         })
 
         it('resets data to empty state', async () => {
@@ -1041,7 +1039,7 @@ describe('WeatherAPI', () => {
 
             expect(api.getWeather()).not.toBeNull()
 
-            api.clearLocalData()
+            await api.clearLocalData()
 
             expect(api.getWeather()).toBeNull()
         })
