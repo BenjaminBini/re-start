@@ -30,3 +30,4 @@ reference
 .worktrees
 .auto-claude-status
 .claude_settings.json
+.auto-claude-security.json
