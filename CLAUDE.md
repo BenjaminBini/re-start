@@ -16,11 +16,6 @@ npm run build:firefox  # Build for Firefox → dist/firefox
 npm run build:chrome   # Build for Chrome → dist/chrome
 npm run watch          # Build + watch for Firefox (use with web-ext run)
 npm test               # Run vitest tests
-
-# Backend (from backend/)
-cd backend
-npm install            # Install backend dependencies
-node server.js         # Run backend server at localhost:3004
 ```
 
 ## Project Structure
@@ -70,13 +65,6 @@ frontend/
 ├── vite.config.ts               # Vite configuration
 ├── tsconfig.json                # TypeScript configuration
 └── eslint.config.js             # ESLint configuration
-
-backend/
-├── server.js                    # Express server for OAuth and static files
-├── routes/                      # API route handlers
-├── package.json                 # Backend dependencies
-├── Dockerfile                   # Container configuration
-└── docker-compose.yml           # Docker compose configuration
 ```
 
 ## Architecture
@@ -188,22 +176,22 @@ Vite with custom plugins in `frontend/vite.config.ts`:
 
 ### Development & Production Architecture
 
-The app runs as a web app (not just browser extension) with a Node.js backend for Google OAuth.
+The app runs as a browser extension with client-side Google OAuth via `chrome.identity` API. No backend server is required.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         DEVELOPMENT                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   Browser (:5173)     Vite Dev Server        Node Backend       │
-│   ┌──────────┐        ┌──────────────┐       ┌──────────────┐   │
-│   │          │───────▶│   Frontend   │       │              │   │
-│   │  User    │        │   (HMR)      │       │  /api/auth/* │   │
-│   │          │───────▶│──────────────│──────▶│  OAuth flow  │   │
-│   └──────────┘        │ Proxy /api/* │       │              │   │
-│                       │ → :3004      │       │  Port 3004   │   │
-│                       └──────────────┘       └──────────────┘   │
+│   Browser (:5173)     Vite Dev Server                           │
+│   ┌──────────┐        ┌──────────────┐                          │
+│   │          │───────▶│   Frontend   │                          │
+│   │  User    │        │   (HMR)      │                          │
+│   │          │        │              │                          │
+│   └──────────┘        └──────────────┘                          │
 │                          Port 5173                              │
+│                                                                 │
+│   Note: OAuth only works in built extension, not dev server     │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -211,50 +199,36 @@ The app runs as a web app (not just browser extension) with a Node.js backend fo
 │                         PRODUCTION                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   Browser             Node Backend (single server)              │
-│   ┌──────────┐        ┌─────────────────────────────────┐       │
-│   │          │───────▶│  Static files (backend/public/) │       │
-│   │  User    │        │  ├── index.html                 │       │
-│   │          │───────▶│  ├── assets/*                   │       │
-│   └──────────┘        │  └── ...                        │       │
-│                       │                                 │       │
-│                       │  /api/auth/* → OAuth flow       │       │
-│                       │  /* → SPA fallback (index.html) │       │
-│                       └─────────────────────────────────┘       │
+│   Chrome Extension        Google APIs                           │
+│   ┌──────────────┐        ┌─────────────────────────────────┐   │
+│   │  New Tab     │        │  Google OAuth (chrome.identity) │   │
+│   │  Extension   │───────▶│  Google Tasks API               │   │
+│   │              │        │  Google Calendar API            │   │
+│   └──────────────┘        └─────────────────────────────────┘   │
+│                                                                 │
+│   OAuth handled by Chrome via chrome.identity.getAuthToken()    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Development Setup:**
 ```bash
-# Terminal 1 - Backend (OAuth API)
-cd backend && node server.js    # Runs on :3004
-
-# Terminal 2 - Frontend (Vite dev server)
-cd frontend && npm run dev      # Runs on :5173, proxies /api/* to :3004
+# Frontend (Vite dev server)
+cd frontend && npm run dev      # Runs on :5173
 ```
-Open `http://localhost:5173`. Vite proxies `/api/*` requests to the backend (configured in `frontend/vite.config.ts`).
+Open `http://localhost:5173` for UI development. Note: Google OAuth requires loading the built extension.
 
-**Production Setup:**
-The Node backend serves everything:
-- Static frontend files from `backend/public/`
-- OAuth API routes at `/api/auth/*`
-- SPA fallback for client-side routing
-
-**Deployment Flow (GitHub Actions):**
-```yaml
-# .github/workflows/deploy.yml
-1. cd frontend && npm ci && npm run build  # Build frontend → frontend/dist/firefox/
-2. cp -r frontend/dist/firefox backend/public  # Copy to backend static folder
-3. rsync backend/ → server                 # Deploy backend (with frontend inside)
-4. docker compose up -d --build            # Restart container
+**Testing OAuth (as extension):**
+```bash
+cd frontend
+npm run build:chrome
+# Load dist/chrome/ as unpacked extension in Chrome
+# chrome://extensions → Developer mode → Load unpacked
 ```
 
 **Key Files:**
-- `frontend/vite.config.ts` - Dev proxy: `/api` → `http://localhost:3004`
-- `frontend/src/lib/providers/google-auth/` - Uses relative `/api/auth/*` paths (works in both dev/prod)
-- `backend/server.js` - Express server serving static files + OAuth routes
-- `.github/workflows/deploy.yml` - Copies frontend build to backend before deploy
+- `frontend/src/lib/providers/google-auth/` - OAuth using chrome.identity API
+- `frontend/public/manifest.json` - OAuth2 client_id and identity permission
 
 ## Code Navigation with Serena (REQUIRED)
 

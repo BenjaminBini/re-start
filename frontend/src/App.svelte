@@ -13,8 +13,6 @@
         hasStoredUserId,
     } from './lib/providers/google-auth/'
     import { authStore } from './lib/stores/auth-store'
-    import { checkBackendHealth } from './lib/backend-status.svelte'
-    import BackendErrorBanner from './lib/components/BackendErrorBanner.svelte'
     import Agenda from './lib/components/Agenda.svelte'
     import Calendar from './lib/components/Calendar.svelte'
     import Clock from './lib/components/Clock.svelte'
@@ -80,9 +78,6 @@
         console.error('[App] Auth error:', authResult.error)
     }
 
-    // Check backend health on load
-    checkBackendHealth()
-
     // Try to restore session if we have a stored user ID
     if (hasStoredUserId() && !authResult) {
         tryRestoreSession()
@@ -136,8 +131,6 @@
 </svelte:head>
 
 <svelte:body class:has-background={settings.showBackground && !!background} />
-
-<BackendErrorBanner />
 
 <main>
     {#if settings.showBackground && background}
