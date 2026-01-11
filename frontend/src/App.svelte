@@ -19,6 +19,7 @@
     import Calendar from './lib/components/Calendar.svelte'
     import Clock from './lib/components/Clock.svelte'
     import Links from './lib/components/Links.svelte'
+    import Notes from './lib/components/Notes.svelte'
     import Settings from './lib/components/Settings.svelte'
     import Tasks from './lib/components/Tasks.svelte'
     import Weather from './lib/components/Weather.svelte'
@@ -185,6 +186,9 @@
             {/if}
             {#if settings.showTasks !== false}
                 <Tasks />
+            {/if}
+            {#if settings.showNotes !== false}
+                <Notes />
             {/if}
             {#if hasStoredUserId() && settings.showCalendar !== false}
                 <Agenda />

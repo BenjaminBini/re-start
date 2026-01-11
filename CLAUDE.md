@@ -48,6 +48,7 @@ frontend/
 │       │   ├── Tasks.svelte     # Multi-provider task management
 │       │   ├── AddTask.svelte   # Task input with date highlighting
 │       │   ├── Calendar.svelte  # Google Calendar events
+│       │   ├── Notes.svelte     # Quick notes/scratchpad with auto-save
 │       │   ├── Links.svelte     # Quick link grid with drag reorder
 │       │   ├── Settings.svelte  # Settings modal
 │       │   ├── Stats.svelte     # FPS/latency/viewport stats
@@ -81,7 +82,7 @@ backend/
 ## Architecture
 
 ### Entry Point Flow
-`frontend/src/main.ts` → mounts `App.svelte` → renders widgets (Clock, Weather, Tasks, Calendar, Links, Stats) + Settings modal
+`frontend/src/main.ts` → mounts `App.svelte` → renders widgets (Clock, Weather, Tasks, Calendar, Notes, Links, Stats) + Settings modal
 
 ### State Management
 Uses Svelte 5 runes (`$state`, `$effect`, `$derived`) in `frontend/src/lib/settings-store.svelte.ts`. Settings persist to localStorage and reactive effects in App.svelte handle theme/CSS/font updates.
@@ -92,6 +93,7 @@ Key settings structure:
 - Weather: `showWeather`, `locationMode`, `latitude`, `longitude`, `tempUnit`, `speedUnit`
 - Tasks: `showTasks`, `taskBackend` (local/todoist/google-tasks), `todoistApiToken`
 - Calendar: `showCalendar`, `googleTasksSignedIn`
+- Notes: `showNotes`, `notesContent`
 - Background: `showBackground`, `backgroundOpacity`
 - Links: `showLinks`, `linksPerColumn`, `linkTarget`, `links[]`
 
@@ -108,6 +110,35 @@ Factory functions in `frontend/src/lib/providers/index.ts`:
 
 ### Google Calendar Provider
 `google-calendar-provider.ts` fetches today's events using Google Calendar API v3. Shares OAuth with Google Tasks.
+
+### Notes Widget
+`frontend/src/lib/components/Notes.svelte` provides a simple scratchpad/notes widget:
+- Single-field text area for quick notes and thoughts
+- Auto-save with 300ms debounce to avoid excessive localStorage writes
+- Content persists to `settings.notesContent` which triggers settings-store auto-save
+- Uses Svelte 5 `$effect` for reactive auto-save when content changes
+- No separate provider needed - direct localStorage through settings store
+- Follows Panel pattern with TextArea UI component
+
+**Auto-save Pattern:**
+```typescript
+let notes = $state(settings.notesContent)
+let saveTimeout: number | null = null
+
+$effect(() => {
+  void notes  // Watch notes state
+  if (saveTimeout !== null) clearTimeout(saveTimeout)
+
+  saveTimeout = setTimeout(() => {
+    if (notes !== settings.notesContent) {
+      settings.notesContent = notes
+      saveSettings(settings)
+    }
+  }, 300)  // 300ms debounce
+
+  return () => clearTimeout(saveTimeout)  // Cleanup
+})
+```
 
 ### Google OAuth System
 `frontend/src/lib/providers/google-auth/` uses Google Identity Services (GIS) library:
@@ -431,3 +462,4 @@ Use `BackendErrorCode` enum for programmatic error handling:
 - Dynamic CSS injection via `<style id="custom-css">` element
 - Link grid uses `$derived.by()` for responsive column layout
 - Frosted glass effect on panels when background image is enabled (`body.has-background`)
+- Notes widget uses `$effect` with 300ms debounce for auto-save to prevent excessive localStorage writes

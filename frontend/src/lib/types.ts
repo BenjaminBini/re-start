@@ -339,6 +339,10 @@ export type LocationMode = 'auto' | 'manual'
  * @property showCalendar - Toggle calendar widget visibility
  * @property selectedCalendars - Array of Google Calendar IDs to display events from
  *
+ * **Notes Settings**
+ * @property showNotes - Toggle notes widget visibility
+ * @property notesContent - Text content for the notes/scratchpad widget (persisted to localStorage)
+ *
  * **Background Settings**
  * @property showBackground - Toggle Unsplash background image display
  * @property backgroundOpacity - Background image opacity (0-100), affects frosted glass effect
@@ -378,6 +382,9 @@ export interface Settings {
     // Calendar
     showCalendar: boolean
     selectedCalendars: string[]
+    // Notes
+    showNotes: boolean
+    notesContent: string
     // Background
     showBackground: boolean
     backgroundOpacity: number

@@ -28,6 +28,9 @@ const defaultSettings: Settings = {
     // Calendar
     showCalendar: true,
     selectedCalendars: [],
+    // Notes
+    showNotes: true,
+    notesContent: '',
     // Background
     showBackground: false,
     backgroundOpacity: 0.85,

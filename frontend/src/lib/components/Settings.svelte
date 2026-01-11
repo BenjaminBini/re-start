@@ -12,6 +12,7 @@
         SquareCheck,
         Calendar,
         Link,
+        StickyNote,
     } from 'lucide-svelte'
     import type { UnsplashBackground } from '../types'
     import SettingsDrawer from './settings/SettingsDrawer.svelte'
@@ -24,6 +25,7 @@
     import TasksSettings from './settings/TasksSettings.svelte'
     import CalendarSettings from './settings/CalendarSettings.svelte'
     import LinksSettings from './settings/LinksSettings.svelte'
+    import NotesSettings from './settings/NotesSettings.svelte'
 
     interface Tab {
         id: string
@@ -52,6 +54,7 @@
         { id: 'tasks', icon: SquareCheck, title: 'Tasks' },
         { id: 'calendar', icon: Calendar, title: 'Calendar' },
         { id: 'links', icon: Link, title: 'Links' },
+        { id: 'notes', icon: StickyNote, title: 'Notes' },
     ]
     let activeTab = $state('appearance')
 
@@ -111,5 +114,7 @@
         <CalendarSettings bind:this={calendarSettingsRef} />
     {:else if activeTab === 'links'}
         <LinksSettings />
+    {:else if activeTab === 'notes'}
+        <NotesSettings />
     {/if}
 </SettingsDrawer>
