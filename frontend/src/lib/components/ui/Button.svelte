@@ -60,13 +60,20 @@
         font: inherit;
         color: var(--txt-3);
         cursor: pointer;
+        outline: 2px solid transparent;
+        outline-offset: 2px;
         transition:
             color 0.15s ease,
-            opacity 0.15s ease;
+            opacity 0.15s ease,
+            outline-color 0.15s ease;
     }
 
     .button:hover:not(:disabled) {
         color: var(--txt-2);
+    }
+
+    .button:focus-visible:not(:disabled) {
+        outline-color: var(--txt-2);
     }
 
     .button:disabled {
