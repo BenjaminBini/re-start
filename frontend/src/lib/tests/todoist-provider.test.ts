@@ -31,18 +31,50 @@ vi.mock('../storage-adapter', () => {
     }
 })
 
-// Mock the UUID module
-vi.mock('../uuid', () => ({
-    generateUUID: vi.fn(() => 'mock-uuid-123'),
-}))
-
 // Import after mocks
 import TodoistProvider from '../providers/todoist-provider'
 import { localStorage as mockStorageAdapter } from '../storage-adapter'
 
-// Helper to create a mock fetch function
+// Helper to create mock REST API v2 responses
 function createMockFetch() {
     return vi.fn()
+}
+
+function mockRestApiResponses(
+    mockFetch: ReturnType<typeof createMockFetch>,
+    tasks: unknown[] = [],
+    projects: unknown[] = [],
+    labels: unknown[] = []
+) {
+    mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/rest/v2/tasks') && !url.match(/\/tasks\/\d/)) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => tasks,
+            })
+        }
+        if (url.includes('/rest/v2/projects')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => projects,
+            })
+        }
+        if (url.includes('/rest/v2/labels')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => labels,
+            })
+        }
+        // Default response for mutations
+        return Promise.resolve({
+            ok: true,
+            status: 204,
+            json: async () => ({}),
+        })
+    })
 }
 
 describe('TodoistProvider', () => {
@@ -71,43 +103,18 @@ describe('TodoistProvider', () => {
             expect(tasks).toEqual([])
         })
 
-        it('loads existing sync token from chrome.storage on first sync', async () => {
-            mockStore['todoist_sync_token'] = 'existing-token-123'
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-
-            // Mock a successful sync to trigger data loading
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({
-                    sync_token: 'new-token',
-                    full_sync: true,
-                    items: [],
-                    labels: [],
-                    projects: [],
-                }),
-            })
-
-            await backend.sync()
-
-            expect(mockStorageAdapter.get).toHaveBeenCalledWith(
-                'todoist_sync_token',
-                '*'
-            )
-        })
-
-        it('loads existing data from chrome.storage on first sync', async () => {
+        it('loads existing data from chrome.storage before first sync', async () => {
             const existingData = {
-                items: [
+                tasks: [
                     {
                         id: '1',
                         content: 'Existing task',
-                        checked: false,
+                        is_completed: false,
                         completed_at: null,
                         due: null,
                         project_id: null,
                         labels: [],
-                        child_order: 0,
+                        order: 0,
                     },
                 ],
                 labels: [],
@@ -118,118 +125,90 @@ describe('TodoistProvider', () => {
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            // Mock a successful sync to trigger data loading
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({
-                    sync_token: 'new-token',
-                    full_sync: false,
-                    items: [],
+            // Before sync, getTasks should be empty (data not loaded yet)
+            expect(backend.getTasks()).toEqual([])
+
+            // Mock REST API v2 sync - returns the same existing task from API
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Existing task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
                     labels: [],
-                    projects: [],
-                }),
-            })
+                    order: 0,
+                },
+            ]
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             await backend.sync()
 
+            // After sync, should have the task from API
             const tasks = backend.getTasks()
             expect(tasks).toHaveLength(1)
             expect(tasks[0]!.content).toBe('Existing task')
         })
-
-        it('defaults to "*" sync token when not in localStorage', () => {
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-
-            // Verify by checking that sync will use "*" token
-            expect(backend).toBeDefined()
-        })
     })
 
     describe('sync', () => {
-        it('makes API call with correct headers and body', async () => {
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: true,
-                items: [],
-                labels: [],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+        it('makes parallel API calls to /tasks, /projects, /labels with correct headers', async () => {
+            mockRestApiResponses(mockFetch, [], [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
 
+            // Should make 3 parallel requests
+            expect(mockFetch).toHaveBeenCalledTimes(3)
+
+            // Verify each endpoint was called with correct headers
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.todoist.com/api/v1/sync',
+                'https://api.todoist.com/rest/v2/tasks',
                 expect.objectContaining({
-                    method: 'POST',
-                    headers: {
+                    headers: expect.objectContaining({
                         Authorization: 'Bearer test-token',
-                    },
-                    body: expect.any(FormData),
+                        'Content-Type': 'application/json',
+                    }),
                 })
             )
 
-            // Verify FormData contents
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            expect(formData.get('sync_token')).toBe('*')
-            expect(formData.get('resource_types')).toBe(
-                JSON.stringify(['items', 'labels', 'projects'])
+            expect(mockFetch).toHaveBeenCalledWith(
+                'https://api.todoist.com/rest/v2/projects',
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Authorization: 'Bearer test-token',
+                    }),
+                })
+            )
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                'https://api.todoist.com/rest/v2/labels',
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Authorization: 'Bearer test-token',
+                    }),
+                })
             )
         })
 
-        it('updates sync token after successful sync', async () => {
-            const mockResponse = {
-                sync_token: 'new-sync-token-456',
-                full_sync: true,
-                items: [],
-                labels: [],
-                projects: [],
-            }
+        it('fetches and stores tasks, projects, and labels', async () => {
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'New task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
+            const mockProjects = [{ id: 'p1', name: 'Project 1' }]
+            const mockLabels = [{ id: 'l1', name: 'Label 1' }]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
-
-            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
-                'todoist_sync_token',
-                'new-sync-token-456'
-            )
-        })
-
-        it('performs full sync when full_sync flag is true', async () => {
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'New task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [{ id: 'l1', name: 'Label 1' }],
-                projects: [{ id: 'p1', name: 'Project 1' }],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, mockProjects, mockLabels)
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -242,330 +221,99 @@ describe('TodoistProvider', () => {
             expect(backend.getLabelNames(['l1'])).toEqual(['Label 1'])
         })
 
-        it('performs incremental sync and merges data', async () => {
-            // Setup existing data
-            const existingData = {
-                items: [
-                    {
-                        id: '1',
-                        content: 'Existing task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-                timestamp: Date.now(),
-            }
-            mockStore['todoist_data'] = existingData
+        it('saves updated data to chrome.storage after sync', async () => {
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            // Mock incremental sync response
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: false,
-                items: [
-                    {
-                        id: '2',
-                        content: 'New incremental task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 1,
-                    },
-                ],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
-
-            const tasks = backend.getTasks()
-            expect(tasks).toHaveLength(2)
-            expect(tasks.map((t) => t.id)).toContain('1')
-            expect(tasks.map((t) => t.id)).toContain('2')
-        })
-
-        it('updates existing items during incremental sync', async () => {
-            // Setup existing data
-            const existingData = {
-                items: [
-                    {
-                        id: '1',
-                        content: 'Original content',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-                timestamp: Date.now(),
-            }
-            mockStore['todoist_data'] = existingData
-
-            // Mock incremental sync with updated item
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: false,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Updated content',
-                        checked: true,
-                        completed_at: new Date().toISOString(),
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
-
-            const tasks = backend.getTasks()
-            expect(tasks).toHaveLength(1)
-            expect(tasks[0]!.content).toBe('Updated content')
-            expect(tasks[0]!.checked).toBe(true)
-        })
-
-        it('removes deleted items during incremental sync', async () => {
-            // Setup existing data
-            const existingData = {
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task to keep',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                    {
-                        id: '2',
-                        content: 'Task to delete',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 1,
-                    },
-                ],
-                labels: [],
-                projects: [],
-                timestamp: Date.now(),
-            }
-            mockStore['todoist_data'] = existingData
-
-            // Mock incremental sync with deleted item
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: false,
-                items: [
-                    {
-                        id: '2',
-                        content: 'Task to delete',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 1,
-                        is_deleted: true,
-                    },
-                ],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
-
-            const tasks = backend.getTasks()
-            expect(tasks).toHaveLength(1)
-            expect(tasks[0]!.id).toBe('1')
-            expect(tasks[0]!.content).toBe('Task to keep')
-        })
-
-        it('saves updated data to localStorage after sync', async () => {
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
 
             expect(mockStorageAdapter.set).toHaveBeenCalledWith(
                 'todoist_data',
-                expect.any(Object)
+                expect.objectContaining({
+                    tasks: expect.arrayContaining([
+                        expect.objectContaining({ id: '1', content: 'Task' }),
+                    ]),
+                    labels: [],
+                    projects: [],
+                    timestamp: expect.any(Number),
+                })
             )
 
-            const savedData = mockStore['todoist_data']
-            expect(savedData.items).toHaveLength(1)
+            const savedData = mockStore['todoist_data'] as {
+                tasks: unknown[]
+                timestamp: number
+            }
+            expect(savedData.tasks).toHaveLength(1)
             expect(savedData.timestamp).toBeDefined()
         })
 
-        it('retries with "*" sync token on failure', async () => {
-            // Set up backend with existing sync token
-            mockStore['todoist_sync_token'] = 'invalid-token'
-
-            // Use 500 error which is retryable
-            const mockErrorResponse = {
+        it('throws AuthError on 401 response', async () => {
+            mockFetch.mockResolvedValue({
                 ok: false,
-                status: 500,
-                statusText: 'Internal Server Error',
-            }
-
-            const mockSuccessResponse = {
-                ok: true,
-                json: async () => ({
-                    sync_token: 'new-token',
-                    full_sync: true,
-                    items: [],
-                    labels: [],
-                    projects: [],
-                }),
-            }
-
-            // First call fails, second call succeeds
-            mockFetch
-                .mockResolvedValueOnce(mockErrorResponse)
-                .mockResolvedValueOnce(mockSuccessResponse)
+                status: 401,
+                statusText: 'Unauthorized',
+            })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
 
-            // Should have been called twice
-            expect(mockFetch).toHaveBeenCalledTimes(2)
-
-            // Second call should use "*" token
-            const secondCall = mockFetch.mock.calls[1]
-            const formData = secondCall[1].body as FormData
-            expect(formData.get('sync_token')).toBe('*')
-
-            // Sync token should be reset to "*" in localStorage
-            expect(mockStorageAdapter.set).toHaveBeenCalledWith(
-                'todoist_sync_token',
-                '*'
+            await expect(backend.sync()).rejects.toThrow(
+                'Todoist API authentication failed: 401'
             )
         })
 
-        it('throws error after retry fails', async () => {
-            mockStore['todoist_sync_token'] = 'invalid-token'
-
-            const mockErrorResponse = {
+        it('throws RateLimitError on 429 response', async () => {
+            mockFetch.mockResolvedValue({
                 ok: false,
-                status: 400,
-            }
-
-            mockFetch.mockResolvedValue(mockErrorResponse)
+                status: 429,
+                statusText: 'Too Many Requests',
+                headers: {
+                    get: (name: string) =>
+                        name === 'Retry-After' ? '60' : null,
+                },
+            })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            await expect(backend.sync()).rejects.toThrow('HTTP 400: undefined')
+            await expect(backend.sync()).rejects.toThrow('rate limit')
         })
 
-        it('does not retry when sync token is already "*"', async () => {
-            const mockErrorResponse = {
+        it('throws NetworkError on 500 response', async () => {
+            mockFetch.mockResolvedValue({
                 ok: false,
-                status: 400,
-            }
-
-            mockFetch.mockResolvedValueOnce(mockErrorResponse)
+                status: 500,
+                statusText: 'Internal Server Error',
+            })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
             await expect(backend.sync()).rejects.toThrow()
-
-            // Should only be called once (no retry)
-            expect(mockFetch).toHaveBeenCalledTimes(1)
-        })
-
-        it('accepts custom resource types parameter', async () => {
-            const mockResponse = {
-                sync_token: 'new-token',
-                full_sync: true,
-                items: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync(['items'])
-
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            expect(formData.get('resource_types')).toBe(
-                JSON.stringify(['items'])
-            )
         })
     })
 
     describe('getProjectName', () => {
         it('returns project name by ID', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [],
-                labels: [],
-                projects: [
+            mockRestApiResponses(
+                mockFetch,
+                [],
+                [
                     { id: 'p1', name: 'Work' },
                     { id: 'p2', name: 'Personal' },
                 ],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+                []
+            )
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -575,18 +323,12 @@ describe('TodoistProvider', () => {
         })
 
         it('returns empty string for non-existent project ID', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [],
-                labels: [],
-                projects: [{ id: 'p1', name: 'Work' }],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(
+                mockFetch,
+                [],
+                [{ id: 'p1', name: 'Work' }],
+                []
+            )
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -597,22 +339,16 @@ describe('TodoistProvider', () => {
 
     describe('getLabelNames', () => {
         it('returns label names by IDs', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [],
-                labels: [
+            mockRestApiResponses(
+                mockFetch,
+                [],
+                [],
+                [
                     { id: 'l1', name: 'Important' },
                     { id: 'l2', name: 'Urgent' },
                     { id: 'l3', name: 'Later' },
-                ],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+                ]
+            )
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -624,18 +360,12 @@ describe('TodoistProvider', () => {
         })
 
         it('filters out non-existent label IDs', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [],
-                labels: [{ id: 'l1', name: 'Important' }],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(
+                mockFetch,
+                [],
+                [],
+                [{ id: 'l1', name: 'Important' }]
+            )
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -658,18 +388,7 @@ describe('TodoistProvider', () => {
         })
 
         it('returns false when cache is fresh (within 5 minutes)', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [],
-                labels: [],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, [], [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -677,27 +396,15 @@ describe('TodoistProvider', () => {
             expect(backend.isCacheStale()).toBe(false)
         })
 
-        it('returns true when cache has no timestamp', () => {
+        it('returns true when cache has no timestamp before sync', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
-
-            // Before sync, cache has no timestamp
             expect(backend.isCacheStale()).toBe(true)
         })
 
         it('returns false when cache is fresh after sync', async () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            // Mock sync to create fresh cache
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({
-                    sync_token: 'token',
-                    full_sync: true,
-                    items: [],
-                    labels: [],
-                    projects: [],
-                }),
-            })
+            mockRestApiResponses(mockFetch, [], [], [])
 
             await backend.sync()
 
@@ -706,24 +413,9 @@ describe('TodoistProvider', () => {
     })
 
     describe('clearLocalData', () => {
-        it('removes sync token from chrome.storage', async () => {
-            mockStore['todoist_sync_token'] = 'token-to-clear'
-            mockStore['todoist_data'] = {
-                items: [],
-            }
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.clearLocalData()
-
-            expect(mockStorageAdapter.remove).toHaveBeenCalledWith(
-                'todoist_sync_token'
-            )
-        })
-
         it('removes data from chrome.storage', async () => {
-            mockStore['todoist_sync_token'] = 'token'
             mockStore['todoist_data'] = {
-                items: [],
+                tasks: [],
             }
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
@@ -734,28 +426,18 @@ describe('TodoistProvider', () => {
             )
         })
 
-        it('resets sync token to "*"', async () => {
-            mockStore['todoist_sync_token'] = 'existing-token'
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.clearLocalData()
-
-            // After clearing, getTasks should work with empty data
-            expect(backend.getTasks()).toEqual([])
-        })
-
         it('resets data to empty state', async () => {
             const existingData = {
-                items: [
+                tasks: [
                     {
                         id: '1',
                         content: 'Task',
-                        checked: false,
+                        is_completed: false,
                         completed_at: null,
                         due: null,
                         project_id: null,
                         labels: [],
-                        child_order: 0,
+                        order: 0,
                     },
                 ],
                 labels: [],
@@ -771,72 +453,79 @@ describe('TodoistProvider', () => {
     })
 
     describe('addTask', () => {
-        it('sends item_add command with content', async () => {
-            mockFetch.mockResolvedValueOnce({
+        it('sends POST request to /tasks with content', async () => {
+            mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({}),
+                status: 200,
+                json: async () => ({
+                    id: 'new-task-id',
+                    content: 'New task',
+                    is_completed: false,
+                    order: 1,
+                }),
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.addTask('New task', null)
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.todoist.com/api/v1/sync',
+                'https://api.todoist.com/rest/v2/tasks',
                 expect.objectContaining({
                     method: 'POST',
-                    headers: {
+                    headers: expect.objectContaining({
                         Authorization: 'Bearer test-token',
-                    },
-                    body: expect.any(FormData),
+                        'Content-Type': 'application/json',
+                    }),
+                    body: JSON.stringify({ content: 'New task' }),
                 })
             )
-
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            const commands = JSON.parse(formData.get('commands') as string)
-
-            expect(commands).toHaveLength(1)
-            expect(commands[0]!.type).toBe('item_add')
-            expect(commands[0].args.content).toBe('New task')
-            expect(commands[0]!.uuid).toBe('mock-uuid-123')
-            expect(commands[0]!.temp_id).toBe('mock-uuid-123')
         })
 
-        it('sends item_add command with content and due date', async () => {
-            mockFetch.mockResolvedValueOnce({
+        it('sends POST request with content and due date', async () => {
+            mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({}),
+                status: 200,
+                json: async () => ({
+                    id: 'new-task-id',
+                    content: 'Task with due date',
+                    is_completed: false,
+                    order: 1,
+                }),
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.addTask('Task with due date', '2025-12-31')
 
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            const commands = JSON.parse(formData.get('commands') as string)
-
-            expect(commands).toHaveLength(1)
-            expect(commands[0]!.type).toBe('item_add')
-            expect(commands[0].args.content).toBe('Task with due date')
-            expect(commands[0].args.due).toEqual({ date: '2025-12-31' })
+            expect(mockFetch).toHaveBeenCalledWith(
+                'https://api.todoist.com/rest/v2/tasks',
+                expect.objectContaining({
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content: 'Task with due date',
+                        due_string: '2025-12-31',
+                    }),
+                })
+            )
         })
 
         it('throws error when command fails', async () => {
-            mockFetch.mockResolvedValueOnce({
+            mockFetch.mockResolvedValue({
                 ok: false,
                 status: 400,
+                statusText: 'Bad Request',
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            await expect(backend.addTask('New task', null)).rejects.toThrow('HTTP 400: undefined')
+            await expect(backend.addTask('New task', null)).rejects.toThrow()
         })
     })
 
     describe('completeTask', () => {
-        it('sends item_close command', async () => {
-            mockFetch.mockResolvedValueOnce({
+        it('sends POST request to /tasks/{id}/close', async () => {
+            mockFetch.mockResolvedValue({
                 ok: true,
+                status: 204,
                 json: async () => ({}),
             })
 
@@ -844,42 +533,35 @@ describe('TodoistProvider', () => {
             await backend.completeTask('task-123')
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.todoist.com/api/v1/sync',
+                'https://api.todoist.com/rest/v2/tasks/task-123/close',
                 expect.objectContaining({
                     method: 'POST',
-                    headers: {
+                    headers: expect.objectContaining({
                         Authorization: 'Bearer test-token',
-                    },
-                    body: expect.any(FormData),
+                        'Content-Type': 'application/json',
+                    }),
                 })
             )
-
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            const commands = JSON.parse(formData.get('commands') as string)
-
-            expect(commands).toHaveLength(1)
-            expect(commands[0]!.type).toBe('item_close')
-            expect(commands[0]!.uuid).toBe('mock-uuid-123')
-            expect(commands[0].args.id).toBe('task-123')
         })
 
         it('throws error when command fails', async () => {
-            mockFetch.mockResolvedValueOnce({
+            mockFetch.mockResolvedValue({
                 ok: false,
                 status: 500,
+                statusText: 'Internal Server Error',
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            await expect(backend.completeTask('task-123')).rejects.toThrow('HTTP 500: undefined')
+            await expect(backend.completeTask('task-123')).rejects.toThrow()
         })
     })
 
     describe('uncompleteTask', () => {
-        it('sends item_uncomplete command', async () => {
-            mockFetch.mockResolvedValueOnce({
+        it('sends POST request to /tasks/{id}/reopen', async () => {
+            mockFetch.mockResolvedValue({
                 ok: true,
+                status: 204,
                 json: async () => ({}),
             })
 
@@ -887,42 +569,37 @@ describe('TodoistProvider', () => {
             await backend.uncompleteTask('task-456')
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.todoist.com/api/v1/sync',
+                'https://api.todoist.com/rest/v2/tasks/task-456/reopen',
                 expect.objectContaining({
                     method: 'POST',
-                    headers: {
+                    headers: expect.objectContaining({
                         Authorization: 'Bearer test-token',
-                    },
-                    body: expect.any(FormData),
+                        'Content-Type': 'application/json',
+                    }),
                 })
             )
-
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            const commands = JSON.parse(formData.get('commands') as string)
-
-            expect(commands).toHaveLength(1)
-            expect(commands[0]!.type).toBe('item_uncomplete')
-            expect(commands[0]!.uuid).toBe('mock-uuid-123')
-            expect(commands[0].args.id).toBe('task-456')
         })
 
         it('throws error when command fails', async () => {
-            mockFetch.mockResolvedValueOnce({
+            mockFetch.mockResolvedValue({
                 ok: false,
                 status: 403,
+                statusText: 'Forbidden',
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            await expect(backend.uncompleteTask('task-456')).rejects.toThrow('Todoist API authentication failed: 403')
+            await expect(backend.uncompleteTask('task-456')).rejects.toThrow(
+                'Todoist API authentication failed: 403'
+            )
         })
     })
 
     describe('deleteTask', () => {
-        it('sends item_delete command', async () => {
-            mockFetch.mockResolvedValueOnce({
+        it('sends DELETE request to /tasks/{id}', async () => {
+            mockFetch.mockResolvedValue({
                 ok: true,
+                status: 204,
                 json: async () => ({}),
             })
 
@@ -930,113 +607,51 @@ describe('TodoistProvider', () => {
             await backend.deleteTask('task-789')
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.todoist.com/api/v1/sync',
+                'https://api.todoist.com/rest/v2/tasks/task-789',
                 expect.objectContaining({
-                    method: 'POST',
-                    headers: {
+                    method: 'DELETE',
+                    headers: expect.objectContaining({
                         Authorization: 'Bearer test-token',
-                    },
-                    body: expect.any(FormData),
+                        'Content-Type': 'application/json',
+                    }),
                 })
             )
-
-            const call = mockFetch.mock.calls[0]
-            const formData = call[1].body as FormData
-            const commands = JSON.parse(formData.get('commands') as string)
-
-            expect(commands).toHaveLength(1)
-            expect(commands[0]!.type).toBe('item_delete')
-            expect(commands[0]!.uuid).toBe('mock-uuid-123')
-            expect(commands[0].args.id).toBe('task-789')
         })
 
         it('throws error when command fails', async () => {
-            mockFetch.mockResolvedValueOnce({
+            mockFetch.mockResolvedValue({
                 ok: false,
                 status: 404,
+                statusText: 'Not Found',
             })
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
 
-            await expect(backend.deleteTask('task-789')).rejects.toThrow('HTTP 404: undefined')
+            await expect(backend.deleteTask('task-789')).rejects.toThrow()
         })
     })
 
     describe('getTasks', () => {
-        it('returns empty array when no items exist', () => {
+        it('returns empty array when no tasks exist', () => {
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             expect(backend.getTasks()).toEqual([])
         })
 
-        it('filters out deleted tasks', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Active task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                        is_deleted: false,
-                    },
-                    {
-                        id: '2',
-                        content: 'Deleted task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 1,
-                        is_deleted: true,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+        it('includes uncompleted tasks', async () => {
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Uncompleted task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
-
-            const backend = new TodoistProvider({ apiToken: 'test-token' })
-            await backend.sync()
-
-            const tasks = backend.getTasks()
-            expect(tasks).toHaveLength(1)
-            expect(tasks[0]!.content).toBe('Active task')
-        })
-
-        it('includes unchecked tasks', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Unchecked task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
-
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1051,29 +666,20 @@ describe('TodoistProvider', () => {
                 Date.now() - 2 * 60 * 1000
             ).toISOString()
 
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Recently completed',
-                        checked: true,
-                        completed_at: recentCompletion,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Recently completed',
+                    is_completed: true,
+                    completed_at: recentCompletion,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1088,29 +694,20 @@ describe('TodoistProvider', () => {
                 Date.now() - 10 * 60 * 1000
             ).toISOString()
 
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Old completed',
-                        checked: true,
-                        completed_at: oldCompletion,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Old completed',
+                    is_completed: true,
+                    completed_at: oldCompletion,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1120,29 +717,21 @@ describe('TodoistProvider', () => {
         })
 
         it('enriches tasks with project_name', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: 'p1',
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [{ id: 'p1', name: 'Work' }],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: 'p1',
+                    labels: [],
+                    order: 0,
+                },
+            ]
+            const mockProjects = [{ id: 'p1', name: 'Work' }]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, mockProjects, [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1152,32 +741,24 @@ describe('TodoistProvider', () => {
         })
 
         it('enriches tasks with label_names', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: ['l1', 'l2'],
-                        child_order: 0,
-                    },
-                ],
-                labels: [
-                    { id: 'l1', name: 'Important' },
-                    { id: 'l2', name: 'Urgent' },
-                ],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
+                    labels: ['l1', 'l2'],
+                    order: 0,
+                },
+            ]
+            const mockLabels = [
+                { id: 'l1', name: 'Important' },
+                { id: 'l2', name: 'Urgent' },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], mockLabels)
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1187,29 +768,20 @@ describe('TodoistProvider', () => {
         })
 
         it('parses due dates without time as end of day', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task',
-                        checked: false,
-                        completed_at: null,
-                        due: { date: '2025-12-15' },
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: { date: '2025-12-15' },
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1225,29 +797,20 @@ describe('TodoistProvider', () => {
         })
 
         it('parses due dates with time and sets has_time flag', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Task',
-                        checked: false,
-                        completed_at: null,
-                        due: { date: '2025-12-15T14:30:00' },
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: { date: '2025-12-15T14:30:00' },
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
@@ -1258,45 +821,36 @@ describe('TodoistProvider', () => {
         })
 
         it('sorts tasks using TaskProvider.sortTasks', async () => {
-            const mockResponse = {
-                sync_token: 'token',
-                full_sync: true,
-                items: [
-                    {
-                        id: '1',
-                        content: 'Checked task',
-                        checked: true,
-                        completed_at: new Date().toISOString(),
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 0,
-                    },
-                    {
-                        id: '2',
-                        content: 'Unchecked task',
-                        checked: false,
-                        completed_at: null,
-                        due: null,
-                        project_id: null,
-                        labels: [],
-                        child_order: 1,
-                    },
-                ],
-                labels: [],
-                projects: [],
-            }
+            const mockTasks = [
+                {
+                    id: '1',
+                    content: 'Completed task',
+                    is_completed: true,
+                    completed_at: new Date().toISOString(),
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 0,
+                },
+                {
+                    id: '2',
+                    content: 'Uncompleted task',
+                    is_completed: false,
+                    completed_at: null,
+                    due: null,
+                    project_id: null,
+                    labels: [],
+                    order: 1,
+                },
+            ]
 
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            })
+            mockRestApiResponses(mockFetch, mockTasks, [], [])
 
             const backend = new TodoistProvider({ apiToken: 'test-token' })
             await backend.sync()
 
             const tasks = backend.getTasks()
-            // Unchecked should be first
+            // Uncompleted should be first
             expect(tasks[0]!.id).toBe('2')
             expect(tasks[1]!.id).toBe('1')
         })

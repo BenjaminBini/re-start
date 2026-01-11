@@ -88,7 +88,7 @@ describe('GoogleTasksProvider', () => {
     })
 
     describe('constructor', () => {
-        it('initializes with empty data when storage is empty', () => {
+        it('initializes with empty data when storage is empty', async () => {
             const backend = new GoogleTasksProvider()
             await waitForDataLoad()
 
@@ -137,7 +137,7 @@ describe('GoogleTasksProvider', () => {
             expect(backend).toBeDefined()
         })
 
-        it('defaults to "@default" when no tasklist ID is stored', () => {
+        it('defaults to "@default" when no tasklist ID is stored', async () => {
             const backend = new GoogleTasksProvider()
             await waitForDataLoad()
 
@@ -171,7 +171,7 @@ describe('GoogleTasksProvider', () => {
             )
         })
 
-        it('getIsSignedIn delegates to google-auth module', () => {
+        it('getIsSignedIn delegates to google-auth module', async () => {
             vi.mocked(googleAuth.isSignedIn).mockReturnValue(true)
 
             const backend = new GoogleTasksProvider()
@@ -182,7 +182,7 @@ describe('GoogleTasksProvider', () => {
             expect(result).toBe(true)
         })
 
-        it('getUserEmail delegates to google-auth module', () => {
+        it('getUserEmail delegates to google-auth module', async () => {
             vi.mocked(googleAuth.getUserEmail).mockReturnValue('test@example.com')
 
             const backend = new GoogleTasksProvider()
@@ -471,7 +471,7 @@ describe('GoogleTasksProvider', () => {
     })
 
     describe('getTasks', () => {
-        it('returns empty array when no tasks exist', () => {
+        it('returns empty array when no tasks exist', async () => {
             const backend = new GoogleTasksProvider()
             await waitForDataLoad()
             expect(backend.getTasks()).toEqual([])
@@ -511,7 +511,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks[0]!.checked).toBe(false)
         })
 
-        it('includes recently completed tasks (within 5 minutes)', () => {
+        it('includes recently completed tasks (within 5 minutes)', async () => {
             const recentCompletion = new Date(
                 Date.now() - 2 * 60 * 1000
             ).toISOString()
@@ -542,7 +542,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks[0]!.completed_at).toBe(recentCompletion)
         })
 
-        it('excludes completed tasks older than 5 minutes', () => {
+        it('excludes completed tasks older than 5 minutes', async () => {
             const oldCompletion = new Date(
                 Date.now() - 10 * 60 * 1000
             ).toISOString()
@@ -571,7 +571,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks).toEqual([])
         })
 
-        it('enriches tasks with tasklist name as project_name', () => {
+        it('enriches tasks with tasklist name as project_name', async () => {
             const mockData = {
                 tasklists: [{ id: 'work-list', title: 'Work Projects' }],
                 tasks: [
@@ -596,7 +596,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks[0]!.project_name).toBe('Work Projects')
         })
 
-        it('parses due dates as end of day (23:59:59)', () => {
+        it('parses due dates as end of day (23:59:59)', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [
@@ -627,7 +627,7 @@ describe('GoogleTasksProvider', () => {
             expect(dueDate.getSeconds()).toBe(59)
         })
 
-        it('handles tasks without due dates', () => {
+        it('handles tasks without due dates', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [
@@ -652,7 +652,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks[0]!.due).toBeNull()
         })
 
-        it('sorts tasks using TaskProvider.sortTasks', () => {
+        it('sorts tasks using TaskProvider.sortTasks', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [
@@ -686,7 +686,7 @@ describe('GoogleTasksProvider', () => {
             expect(tasks[1]!.id).toBe('task1')
         })
 
-        it('sets label_names to empty array', () => {
+        it('sets label_names to empty array', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'List' }],
                 tasks: [
@@ -713,7 +713,7 @@ describe('GoogleTasksProvider', () => {
     })
 
     describe('getTasklistName', () => {
-        it('returns tasklist name by ID', () => {
+        it('returns tasklist name by ID', async () => {
             const mockData = {
                 tasklists: [
                     { id: 'list1', title: 'Work' },
@@ -732,7 +732,7 @@ describe('GoogleTasksProvider', () => {
             expect(backend.getTasklistName('list2')).toBe('Personal')
         })
 
-        it('returns empty string for non-existent tasklist ID', () => {
+        it('returns empty string for non-existent tasklist ID', async () => {
             const mockData = {
                 tasklists: [{ id: 'list1', title: 'Work' }],
                 tasks: [],
@@ -1150,7 +1150,7 @@ describe('GoogleTasksProvider', () => {
     })
 
     describe('isCacheStale', () => {
-        it('returns true when no timestamp exists', () => {
+        it('returns true when no timestamp exists', async () => {
             const backend = new GoogleTasksProvider()
             await waitForDataLoad()
             expect(backend.isCacheStale()).toBe(true)

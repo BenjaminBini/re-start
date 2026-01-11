@@ -7,6 +7,7 @@ import { get } from 'svelte/store'
 import { authStore, AuthStatus } from '../../stores/auth-store'
 import { USER_EMAIL_KEY } from './constants'
 import { log } from './logger'
+import { localStorage as storageAdapter } from '../../storage-adapter'
 
 /**
  * Set authenticated state with user email
@@ -28,8 +29,8 @@ export function setUnauthenticated(): void {
  * Initialize auth state on module load
  * Status stays 'unknown' until tryRestoreSession runs
  */
-export function initAuthState(): void {
-    const email = localStorage.getItem(USER_EMAIL_KEY)
+export async function initAuthState(): Promise<void> {
+    const email = await storageAdapter.get(USER_EMAIL_KEY, null)
     authStore.setEmail(email)
     log('Initial auth state: unknown', { email })
 }
@@ -41,5 +42,5 @@ export function isSignedIn(): boolean {
     return get(authStore).status === AuthStatus.Authenticated
 }
 
-// Initialize auth state on module load
+// Initialize auth state on module load (async, no await needed here)
 initAuthState()

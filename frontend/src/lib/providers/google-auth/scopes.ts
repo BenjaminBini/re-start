@@ -7,6 +7,7 @@ import { getAccessToken } from './storage'
 import { logError } from './logger'
 import { SCOPES_KEY } from './constants'
 import type { TokenInfo } from './types'
+import { localStorage as storageAdapter } from '../../storage-adapter'
 
 /**
  * Fetch and update scopes from token
@@ -23,7 +24,7 @@ export async function refreshScopes(): Promise<boolean> {
         if (response.ok) {
             const data = (await response.json()) as TokenInfo
             if (data.scope) {
-                localStorage.setItem(SCOPES_KEY, data.scope)
+                await storageAdapter.set(SCOPES_KEY, data.scope)
                 return true
             }
         }
