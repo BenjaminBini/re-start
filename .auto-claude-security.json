@@ -128,9 +128,34 @@
     "zsh"
   ],
   "stack_commands": [
+    "ar",
+    "clang",
+    "clang++",
+    "cmake",
+    "composer",
+    "g++",
+    "gcc",
+    "ipython",
+    "jupyter",
+    "ld",
+    "make",
+    "meson",
+    "ninja",
+    "nm",
     "node",
+    "notebook",
     "npm",
     "npx",
+    "objdump",
+    "pdb",
+    "php",
+    "pip",
+    "pip3",
+    "pipx",
+    "pudb",
+    "python",
+    "python3",
+    "strip",
     "ts-node",
     "tsc",
     "tsx"
@@ -139,8 +164,12 @@
   "custom_commands": [],
   "detected_stack": {
     "languages": [
+      "python",
       "javascript",
-      "typescript"
+      "typescript",
+      "php",
+      "c",
+      "cpp"
     ],
     "package_managers": [],
     "frameworks": [],

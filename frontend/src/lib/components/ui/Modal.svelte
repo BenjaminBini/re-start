@@ -86,7 +86,7 @@
             aria-modal="true"
             tabindex="-1"
         >
-            <button class="close-btn" onclick={onClose}>
+            <button class="close-btn" onclick={onClose} aria-label="Close">
                 <X size={16} />
             </button>
             <div class="content">

@@ -90,7 +90,14 @@
                 {/each}
             </Column>
         </Row>
-        <Button variant="sync" onclick={syncWeather} disabled={syncing} spinning={syncing} title="sync">
+        <Button
+            variant="sync"
+            onclick={syncWeather}
+            disabled={syncing}
+            spinning={syncing}
+            title="sync"
+            aria-label="Refresh weather"
+        >
             <RefreshCw size={14} />
         </Button>
     {/if}

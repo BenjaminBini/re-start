@@ -63,57 +63,6 @@
             return
         }
 
-        // Arrow key navigation for tabs
-        if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && tabs.length > 0) {
-            // Check if focus is on a tab button
-            const activeElement = document.activeElement as HTMLElement
-            const isTabFocused = activeElement?.getAttribute('role') === 'tab'
-
-            if (isTabFocused) {
-                event.preventDefault()
-                const currentIndex = tabs.findIndex((tab) => tab.id === activeTab)
-
-                let newIndex: number
-                if (event.key === 'ArrowRight') {
-                    // Move to next tab, wrap to first if at end
-                    newIndex = currentIndex + 1 >= tabs.length ? 0 : currentIndex + 1
-                } else {
-                    // Move to previous tab, wrap to last if at beginning
-                    newIndex = currentIndex - 1 < 0 ? tabs.length - 1 : currentIndex - 1
-                }
-
-                const newTab = tabs[newIndex]
-                activeTab = newTab.id
-                // Focus the new tab element
-                tabElements[newTab.id]?.focus()
-            }
-        }
-
-        // Home/End key navigation for tabs
-        if ((event.key === 'Home' || event.key === 'End') && tabs.length > 0) {
-            // Check if focus is on a tab button
-            const activeElement = document.activeElement as HTMLElement
-            const isTabFocused = activeElement?.getAttribute('role') === 'tab'
-
-            if (isTabFocused) {
-                event.preventDefault()
-
-                let newIndex: number
-                if (event.key === 'Home') {
-                    // Jump to first tab
-                    newIndex = 0
-                } else {
-                    // Jump to last tab
-                    newIndex = tabs.length - 1
-                }
-
-                const newTab = tabs[newIndex]
-                activeTab = newTab.id
-                // Focus the new tab element
-                tabElements[newTab.id]?.focus()
-            }
-        }
-
         // Focus trap: handle Tab key
         if (event.key === 'Tab' && drawerElement) {
             const focusableElements = drawerElement.querySelectorAll<HTMLElement>(
@@ -166,22 +115,18 @@
     >
         <div class="header">
             <h2>{title}</h2>
-            <button class="close-btn" onclick={onClose}>x</button>
+            <button class="close-btn" onclick={onClose} aria-label="Close">x</button>
         </div>
 
         {#if tabs.length > 0}
-            <nav class="tabs" role="tablist">
+            <nav class="tabs">
                 {#each tabs as tab (tab.id)}
                     <button
-                        id="tab-{tab.id}"
                         class="tab"
                         class:active={activeTab === tab.id}
-                        role="tab"
-                        aria-selected={activeTab === tab.id ? 'true' : 'false'}
-                        aria-controls="tabpanel-{tab.id}"
-                        tabindex={activeTab === tab.id ? 0 : -1}
                         onclick={() => (activeTab = tab.id)}
                         title={tab.title}
+                        aria-label={tab.title}
                         bind:this={tabElements[tab.id]}
                     >
                         <tab.icon size={18} strokeWidth={2} />
@@ -191,13 +136,7 @@
             </nav>
         {/if}
 
-        <div
-            class="content"
-            role="tabpanel"
-            id="tabpanel-{activeTab}"
-            aria-labelledby="tab-{activeTab}"
-            tabindex="0"
-        >
+        <div class="content">
             {@render children()}
 
             {#if footer}
